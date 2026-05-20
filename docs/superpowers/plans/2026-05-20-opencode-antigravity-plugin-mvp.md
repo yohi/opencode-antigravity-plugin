@@ -476,29 +476,30 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-slim
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@883057165b84437a107f06211f2e14e97f00d059 # v5.1.0
         with:
           enable-cache: true
-          version: "latest"
+          version: "0.1.x"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
         with:
           python-version: "3.13"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fb5743d # v4.0.0
         with:
           version: 9
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1d96c772d19495a3b5c517cd2bc0cb401ea0529f # v4.1.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -514,10 +515,12 @@ jobs:
 
 ポイント:
 
-- `ubuntu-slim` を使用。
-- `astral-sh/setup-uv` と `pnpm/action-setup` を使用して標準的な構成にする。
+- `ubuntu-slim` (1 vCPU) を使用。リソース制限を考慮し、`timeout-minutes: 15` を設定。
+- 再現性とセキュリティのため、Action はフルコミット SHA で固定し、`uv` のバージョンも `0.1.x` を指定。
+- パフォーマンス向上のため `setup-uv` と `setup-node` (pnpm) のキャッシュを有効化。
 - `master` ブランチで `verify` が走る（21 テスト全実行）。
 - PR にも同等チェックを実施。
+- 万が一 `ubuntu-slim` でのテストが 15 分を超える場合は、ジョブを Lint と Test に分割し並列実行することを検討する。
 
 - [ ] **Step 3: コミットと Draft PR 作成**
 
