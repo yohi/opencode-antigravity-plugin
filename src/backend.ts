@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn, type ChildProcessByStdio } from "node:child_process";
+import type { Readable, Writable } from "node:stream";
 import { JsonRpcClient } from "./jsonrpc.js";
 import {
   BackendCrashedError,
@@ -19,11 +20,12 @@ export interface PythonBackendOptions {
 }
 
 export class PythonBackend extends EventEmitter {
-  private proc: ChildProcessWithoutNullStreams | null = null;
+  private proc: ChildProcessByStdio<Writable, Readable, null> | null = null;
   private client: JsonRpcClient | null = null;
   private state: BackendState = "stopped";
   private _restartCount = 0;
   private stdoutBuf = "";
+  private restartTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly opts: PythonBackendOptions) {
     super();
@@ -43,15 +45,34 @@ export class PythonBackend extends EventEmitter {
 
   async start(): Promise<void> {
     this.state = "starting";
-    this.spawnAndWire();
-    await this.waitForHealthy();
-    this.state = "ready";
-    this.emit("ready");
+    try {
+      this.spawnAndWire();
+      await this.waitForHealthy();
+      this.state = "ready";
+      this.emit("ready");
+    } catch (err) {
+      // 初回起動失敗もクラッシュとして数える
+      const crash = this.toCrashedError(err);
+      this.client?.rejectAll(crash);
+      this.proc?.kill("SIGKILL");
+      this.proc = null;
+      this.client = null;
+      // permanently_failed に到達するまで attemptRestart に委ねる
+      const state = this.state as BackendState;
+      if (state !== "restarting" && state !== "permanently_failed") {
+        void this.attemptRestart();
+      }
+      throw crash;
+    }
   }
 
   async call(method: string, params: unknown): Promise<unknown> {
     if (this.state === "permanently_failed") {
       throw new BackendPermanentlyFailedError();
+    }
+    if (this.state === "restarting" || this.state === "starting") {
+      // design §7.3: キューイングせず即座に reject (HTTP 層が 503 へ変換)
+      throw new BackendCrashedError(`backend ${this.state}, retry later`);
     }
     if (this.state !== "ready" || this.client === null) {
       throw new BackendCrashedError(`backend not ready (state=${this.state})`);
@@ -61,6 +82,10 @@ export class PythonBackend extends EventEmitter {
 
   async stop(): Promise<void> {
     this.state = "stopped";
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
     if (this.proc) {
       this.proc.kill("SIGTERM");
       await this.waitProcExit(3000);
@@ -91,12 +116,13 @@ export class PythonBackend extends EventEmitter {
 
   private onStdoutChunk(chunk: string): void {
     this.stdoutBuf += chunk;
-    let idx: number;
-    while ((idx = this.stdoutBuf.indexOf("\n")) >= 0) {
+    let idx = this.stdoutBuf.indexOf("\n");
+    while (idx >= 0) {
       const line = this.stdoutBuf.slice(0, idx);
       this.stdoutBuf = this.stdoutBuf.slice(idx + 1);
       if (line.trim().length === 0) continue;
       this.client?.handleInboundLine(line);
+      idx = this.stdoutBuf.indexOf("\n");
     }
   }
 
@@ -113,10 +139,14 @@ export class PythonBackend extends EventEmitter {
     this.client?.rejectAll(err);
     this.proc = null;
     this.client = null;
-    void this.attemptRestart();
+    if (this.state === "ready") {
+      void this.attemptRestart();
+    }
   }
 
   private async attemptRestart(): Promise<void> {
+    const currentState = this.state as BackendState;
+    if (currentState === "stopped" || currentState === "permanently_failed") return;
     this.state = "restarting";
     this.emit("restarting");
     if (this._restartCount >= this.opts.maxRestarts) {
@@ -126,15 +156,33 @@ export class PythonBackend extends EventEmitter {
     }
     const wait = this.opts.backoffMs[this._restartCount] ?? 4000;
     this._restartCount += 1;
-    await new Promise((r) => setTimeout(r, wait));
+    await new Promise<void>((resolve) => {
+      this.restartTimer = setTimeout(() => {
+        this.restartTimer = null;
+        resolve();
+      }, wait);
+    });
+    const stateAfterBackoff = this.state as BackendState;
+    if (stateAfterBackoff === "stopped" || stateAfterBackoff === "permanently_failed") return;
     try {
       this.spawnAndWire();
       await this.waitForHealthy();
       this.state = "ready";
       this.emit("ready");
-    } catch {
+    } catch (err) {
+      const crash = this.toCrashedError(err);
+      this.client?.rejectAll(crash);
+      this.proc?.kill("SIGKILL");
+      this.proc = null;
+      this.client = null;
       void this.attemptRestart();
     }
+  }
+
+  private toCrashedError(err: unknown): BackendCrashedError {
+    if (err instanceof BackendCrashedError) return err;
+    const message = err instanceof Error ? err.message : String(err);
+    return new BackendCrashedError(message);
   }
 
   private waitProcExit(timeoutMs: number): Promise<void> {
