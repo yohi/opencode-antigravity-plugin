@@ -4,6 +4,7 @@ import {
   BackendTimeoutError,
   BackendPermanentlyFailedError,
   ProtocolError,
+  NotImplementedError,
   toOpenAIError,
 } from "../../src/errors.js";
 
@@ -32,5 +33,11 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new ProtocolError("bad json"));
     expect(status).toBe(400);
     expect(body.error.type).toBe("invalid_request_error");
+  });
+
+  test("converts NotImplementedError to 501 not_implemented", () => {
+    const { status, body } = toOpenAIError(new NotImplementedError("stream not supported"));
+    expect(status).toBe(501);
+    expect(body.error.type).toBe("not_implemented");
   });
 });

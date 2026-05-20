@@ -1,9 +1,15 @@
 export class BackendCrashedError extends Error {
   readonly name = "BackendCrashedError";
+  constructor(message = "backend crashed") {
+    super(message);
+  }
 }
 
 export class BackendTimeoutError extends Error {
   readonly name = "BackendTimeoutError";
+  constructor(message = "backend timed out") {
+    super(message);
+  }
 }
 
 export class BackendPermanentlyFailedError extends Error {
