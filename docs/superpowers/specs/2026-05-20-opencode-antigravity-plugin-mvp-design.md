@@ -25,7 +25,7 @@
 
 採用案: **案 A — TS が HTTP サーバ、Python が純粋 stdio JSON-RPC ワーカ**。
 
-```
+```text
 [Cursor]
    │ HTTP (OpenAI 互換)
    ▼
@@ -43,7 +43,7 @@
 
 ## 4. リポジトリ構成
 
-```
+```text
 opencode-antigravity-plugin/
 ├── .devcontainer/
 │   ├── devcontainer.json        # Node 20 + Python 3.11、ports forward
@@ -51,7 +51,7 @@ opencode-antigravity-plugin/
 ├── package.json                 # pnpm, vitest, tsx, @types/node
 ├── pnpm-lock.yaml
 ├── tsconfig.json
-├── pyproject.toml               # uv 管理。src ディレクトリは `backend/src/` を参照
+├── pyproject.toml               # パッケージ管理=uv、ビルドバックエンド=hatchling。src は backend/src/ を参照
 ├── uv.lock
 ├── README.md
 │
@@ -71,7 +71,7 @@ opencode-antigravity-plugin/
 │       ├── handlers.py          # echo / health / chat.completions
 │       └── protocol.py          # JSON-RPC 型と pydantic 検証
 │   # 注: pyproject.toml はリポジトリルートに1つだけ置く。
-│   # [tool.hatch.build.targets.wheel.sources] = { "backend/src" = "" } 等で src レイアウトを指定する。
+│   # [tool.hatch.build.targets.wheel.sources] = { "backend/src" = "" } 等で src レイアウトを指定する（詳細は下記の設計判断参照）。
 │
 └── tests/
     ├── ts/
@@ -87,7 +87,9 @@ opencode-antigravity-plugin/
 
 設計判断:
 
-- **uv** を Python のパッケージ管理に採用（高速、`pyproject.toml` ネイティブ、devcontainer ブートストラップが短い）
+- **パッケージ管理 / 実行 = `uv`**（高速、`pyproject.toml` ネイティブ、devcontainer ブートストラップが短い）。日常運用 (`uv sync`, `uv run pytest`, `uv pip install -e .`) はすべて uv 経由
+- **ビルドバックエンド = `hatchling`**。`pyproject.toml` の `[build-system]` に `requires = ["hatchling"]` / `build-backend = "hatchling.build_meta"` を宣言し、`[tool.hatch.build.targets.wheel.sources]` で `backend/src` を src レイアウトとして指定する
+- 両者の関係: **uv はパッケージマネージャ／環境マネージャであり、自前のビルドバックエンドを持たない**。PEP 517 ビルドバックエンドとして hatchling を呼び出す形でセットアップする。`uv build` を MVP で常用する場面は無いが、editable install 解決のためにビルドバックエンド宣言は必須
 - TS と Python は物理ディレクトリで分離（責務境界を構造で表現）
 - 統合テストは TS 側に置き、実 Python を spawn する（実環境に近い）
 
@@ -161,7 +163,7 @@ opencode-antigravity-plugin/
 
 ### 7.2 正常系リクエストフロー
 
-```
+```text
 [Cursor] POST /v1/chat/completions
    ▼
 [TS server.ts]
@@ -185,7 +187,7 @@ opencode-antigravity-plugin/
 
 ### 7.3 クラッシュ検知と再起動
 
-```
+```text
 [Python プロセス異常終了]
    ▼
 [TS backend.ts]
@@ -271,7 +273,9 @@ opencode-antigravity-plugin/
 | Python | **stderr のみ** | 標準 logging、INFO 以上、stdout は JSON-RPC 専用で汚さない |
 | 統合時 | TS が Python の stderr を inherit | TS ログにそのまま流れる |
 
-**最重要ルール**: Python 側は `print()` 禁止、`logger.info()` 強制（stdout 汚染防止）。`ruff` でルール化する。
+**最重要ルール**: Python 側は `print()` 禁止、`logger.info()` 強制（stdout 汚染防止）。
+
+具体的な `ruff` 設定: `pyproject.toml` の `[tool.ruff.lint]` で `select` に **`T20`** カテゴリを含める（`T201` = `print found`、`T203` = `pprint found` の両方を有効化）。`[tool.ruff.lint.per-file-ignores]` で `tests/python/*` の `T20` 緩和は不要（テストでも `caplog` や `capsys` でログ検証する想定）。違反はエラーレベルとして扱い、CI で `ruff check` 失敗をブロッカーとする。
 
 ### 8.4 観測性（MVP の最小限）
 
@@ -348,6 +352,7 @@ pnpm verify   # = uv run pytest && pnpm test:unit && pnpm test:integration && pn
 - **PKCE / OAuth** は Phase 3。MVP の `/v1/chat/completions` は Authorization ヘッダを受け入れるが検証しない
 - **MCP ブリッジ**は Phase 4。`backend/src/opencode_antigravity/mcp/` 配下に追加する想定
 - **Cursor VSCode 拡張パッケージング**は当面非対応。ユーザは Cursor 設定で `OPENAI_BASE_URL=http://127.0.0.1:11435/v1` を手動設定して利用する
+- **再起動ポリシーの外部設定化**: MVP では 7.3 のとおりハードコード (`max_retries=3`、待機 `1s / 2s / 4s`) とする。Phase 2 以降で実環境（実 Antigravity ワークロード）に晒される段階で、`max_retries` / `base_delay` / `backoff_factor` を環境変数または設定ファイルから注入できるようにする。デフォルト値は現在のハードコード値を維持し、テスト #16 / #17 / #18 はデフォルト挙動を引き続き検証するため互換性を壊さない
 
 ## 11. 用語集
 
