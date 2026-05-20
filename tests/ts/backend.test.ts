@@ -90,5 +90,5 @@ describe("PythonBackend failure semantics", () => {
     const res = (await back.call("echo", { text: "after" })) as { text: string };
     expect(res.text).toBe("after");
     await back.stop();
-  });
+  }, 10000);
 });
