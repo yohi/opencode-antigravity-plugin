@@ -486,7 +486,7 @@ jobs:
         uses: astral-sh/setup-uv@883057165b84437a107f06211f2e14e97f00d059 # v5.1.0
         with:
           enable-cache: true
-          version: "0.1.41"
+          version: "0.11.15"
 
       - name: Set up Python
         uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.3.0
@@ -520,7 +520,7 @@ jobs:
   - **検証手順**: 初回 PR マージ前に、`ubuntu-slim` 上で全ジョブが 15 分以内に完了することを 3 回連続実行で確認する。
   - **合格基準**: 全実行の平均完了時間が 12 分以内、かつ最大値が 15 分を超えないこと（マトリックス: Lint/TypeCheck/Test 各ジョブ）。
   - **フォールバック**: ベンチマーク失敗時は `ubuntu-24.04` へ切り替え、または Lint と Test のジョブ分割を即座に実施する。
-- 再現性とセキュリティのため、Action はフルコミット SHA で固定し、`uv` のバージョンも `0.1.41` を指定。
+- 再現性とセキュリティのため、Action はフルコミット SHA で固定し、`uv` のバージョンも `0.11.15` を指定。
 - パフォーマンス向上のため `setup-uv` と `setup-node` (pnpm) のキャッシュを有効化。
 - `master` ブランチで `verify` が走る（21 テスト全実行）。
 - PR にも同等チェックを実施。
