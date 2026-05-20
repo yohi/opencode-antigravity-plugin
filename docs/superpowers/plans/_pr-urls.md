@@ -10,3 +10,4 @@
 | Task 1.3 | https://github.com/yohi/opencode-antigravity-plugin/pull/12 |
 | Task 3.1 | https://github.com/yohi/opencode-antigravity-plugin/pull/13 |
 | Task 4.0 | https://github.com/yohi/opencode-antigravity-plugin/pull/14 |
+| Task 4.1 | https://github.com/yohi/opencode-antigravity-plugin/pull/15 |
