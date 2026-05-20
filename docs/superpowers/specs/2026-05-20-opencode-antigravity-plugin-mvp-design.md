@@ -8,7 +8,7 @@
 
 既存の `opencode-cursor-plugin`（TypeScript ベース）を参考に、主要なロジックを Google Antigravity SDK（Python）に委譲する「薄い TS ラッパー＋強力な Python コア」のハイブリッドアーキテクチャを、空ディレクトリからフルスクラッチで構築する。
 
-最終目的は、Antigravity の高度なエージェント管理と既存 Cursor の OpenAI 互換プロバイダ機構を組み合わせて、OpenCode をシームレスに動作させること。
+最終目的は、Antigravity の高度なエージェント管理と OpenCode の OpenAI 互換プロバイダ機構を組み合わせて、本プラグインをシームレスに動作させること。
 
 本 MVP では、Antigravity SDK 連携・ストリーミング・MCP・認証といった重い要素はすべて Phase 2 以降に後回しし、**配管（IPC・プロセス管理・エラー伝搬）の正しさを最優先で固める**ことに集中する。
 
@@ -16,17 +16,17 @@
 
 | 項目 | 内容 |
 |---|---|
-| 動作目標 | Cursor から `127.0.0.1:11435` に OpenAI 互換 POST を打つと、Python 側で組み立てた echo 形式の `chat.completions` レスポンスが返る |
+| 動作目標 | OpenCode から `127.0.0.1:11435` に OpenAI 互換 POST を打つと、Python 側で組み立てた echo 形式の `chat.completions` レスポンスが返る |
 | 必須機能 | (a) HTTP サーバ起動、(b) Python サブプロセス起動と stdio JSON-RPC 通信、(c) クラッシュ検知と自動再起動 (指数バックオフ・最大 3 回)、(d) 永続失敗状態への遷移と 503 応答 |
 | 受け入れ基準 | devcontainer 内で `pnpm verify` がパスする（後述 21 ケース） |
-| 明示的に非ゴール | Antigravity SDK 実呼び出し、SSE ストリーミング、Agent Pool、MCP、PKCE/OAuth、Cursor 拡張パッケージング |
+| 明示的に非ゴール | Antigravity SDK 実呼び出し、SSE ストリーミング、Agent Pool、MCP、PKCE/OAuth、プラグインパッケージング |
 
 ## 3. アーキテクチャ全体像
 
 採用案: **案 A — TS が HTTP サーバ、Python が純粋 stdio JSON-RPC ワーカ**。
 
 ```text
-[Cursor]
+[OpenCode]
    │ HTTP (OpenAI 互換)
    ▼
 [TS: HTTP サーバ + 親プロセス]
@@ -159,12 +159,12 @@ opencode-antigravity-plugin/
    - stderr は親に inherit（デバッグ用にそのまま表示）
 4. `backend.ts`: 起動後 5 秒以内の `health` 呼び出し成功を ready 条件とする
 5. `server.ts`: HTTP サーバを 127.0.0.1:11435 で listen 開始
-6. Cursor からの接続待ち
+6. OpenCode からの接続待ち
 
 ### 7.2 正常系リクエストフロー
 
 ```text
-[Cursor] POST /v1/chat/completions
+[OpenCode] POST /v1/chat/completions
    ▼
 [TS server.ts]
    - JSON パース
@@ -209,7 +209,7 @@ opencode-antigravity-plugin/
 内部状態が `restarting` の間（バックオフ待機中・プロセス起動中・初回 health 完了前のいずれも含む）に到着した新規 HTTP リクエストは、**キューイングせず即座に 503 (`backend_unavailable`) を返す**。理由は次の通り:
 
 - キューイングは「リクエスト処理時間が予測不能になる」「タイムアウトと再起動完了の競合で挙動が複雑化する」「滞留がメモリ圧迫の原因となる」というデメリットが大きい
-- Cursor 側のリトライ戦略（指数バックオフ付き再送）に判断を委ねる方が semantic が明確
+- OpenCode 側のリトライ戦略（指数バックオフ付き再送）に判断を委ねる方が semantic が明確
 - 永続失敗状態の 503 と挙動が揃い、クライアントから見た一貫性が保たれる
 
 503 応答時の OpenAI エラー形式 `message` フィールドには、`restarting` と `permanently_failed` を区別できる文言を含める（例: `"backend restarting, retry later"` / `"backend permanently failed"`）。
@@ -247,7 +247,7 @@ opencode-antigravity-plugin/
 
 | 発生源 | TS 内部型 | HTTP | OpenAI 形式 type |
 |---|---|---|---|
-| Cursor の不正リクエスト（JSON パース失敗） | `ProtocolError` | 400 | `invalid_request_error` |
+| OpenCode の不正リクエスト（JSON パース失敗） | `ProtocolError` | 400 | `invalid_request_error` |
 | `stream: true`（MVP 未対応） | `NotImplementedError` | 501 | `not_implemented` |
 | Python から `-32602 Invalid params` | 伝搬 | 400 | `invalid_request_error` |
 | Python から `-32603 Internal error` | 伝搬 | 500 | `server_error` |
@@ -351,7 +351,7 @@ pnpm verify   # = uv run pytest && pnpm test:unit && pnpm test:integration && pn
 - **SSE ストリーミング**は Phase 2 の最初のテーマ。設計上、Python `handlers.py` を generator 化し、TS `backend.ts` で JSON-RPC notification を SSE chunk に変換する形にする想定
 - **PKCE / OAuth** は Phase 3。MVP の `/v1/chat/completions` は Authorization ヘッダを受け入れるが検証しない
 - **MCP ブリッジ**は Phase 4。`backend/src/opencode_antigravity/mcp/` 配下に追加する想定
-- **Cursor VSCode 拡張パッケージング**は当面非対応。ユーザは Cursor 設定で `OPENAI_BASE_URL=http://127.0.0.1:11435/v1` を手動設定して利用する
+- **プラグインパッケージング**は当面非対応。ユーザは OpenCode の設定ファイル（`opencode.jsonc`）の `options.baseURL` に `http://127.0.0.1:11435/v1` を手動設定して利用する
 - **再起動ポリシーの外部設定化**: MVP では 7.3 のとおりハードコード (`max_retries=3`、待機 `1s / 2s / 4s`) とする。Phase 2 以降で実環境（実 Antigravity ワークロード）に晒される段階で、`max_retries` / `base_delay` / `backoff_factor` を環境変数または設定ファイルから注入できるようにする。デフォルト値は現在のハードコード値を維持し、テスト #16 / #17 / #18 はデフォルト挙動を引き続き検証するため互換性を壊さない
 
 ## 11. 用語集
@@ -360,6 +360,6 @@ pnpm verify   # = uv run pytest && pnpm test:unit && pnpm test:integration && pn
 |---|---|
 | MVP | Minimum Viable Product。本書では Phase 1 = 配管検証 + クラッシュ復旧を指す |
 | NDJSON | Newline-Delimited JSON。1 行 = 1 メッセージ |
-| Cursor | AI ペアプログラミング IDE。OpenAI 互換 base URL 設定をサポート |
+| OpenCode | AI ペアプログラミング環境。カスタムプロバイダ（OpenAI互換）の設定をサポート |
 | Antigravity SDK | Google が提供する Python ベースのエージェント SDK（具体仕様は Phase 2 で確認） |
-| OpenCode | 本プラグインが Cursor から呼び出し可能にする対象のコーディング基盤 |
+| 本プラグイン | Antigravity SDK を OpenCode から呼び出し可能にするためのブリッジプラグイン |

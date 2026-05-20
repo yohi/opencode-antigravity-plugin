@@ -4,7 +4,7 @@
 
 **Goal:** TypeScript（HTTP前段）と Python（stdio JSON-RPC ワーカ）をハイブリッド構成した `opencode-antigravity-plugin` の MVP を、設計書 `docs/superpowers/specs/2026-05-20-opencode-antigravity-plugin-mvp-design.md` の 21 テストケースが `pnpm verify` で全パスする状態までフルスクラッチで構築する。
 
-**Architecture:** Cursor から `127.0.0.1:11435` への OpenAI 互換 HTTP を TS 親プロセスが受け、Python サブプロセスへ NDJSON over stdio で JSON-RPC 2.0 を中継する案 A 構成。MVP では echo 形式の `chat.completions` を返却し、Antigravity SDK・SSE・MCP・OAuth は Phase 2 以降に後回し。配管（IPC・プロセス管理・クラッシュ復旧・エラー伝搬）の正しさに集中する。
+**Architecture:** OpenCode から `127.0.0.1:11435` への OpenAI 互換 HTTP を TS 親プロセスが受け、Python サブプロセスへ NDJSON over stdio で JSON-RPC 2.0 を中継する案 A 構成。MVP では echo 形式の `chat.completions` を返却し、Antigravity SDK・SSE・MCP・OAuth は Phase 2 以降に後回し。配管（IPC・プロセス管理・クラッシュ復旧・エラー伝搬）の正しさに集中する。
 
 **Tech Stack:** Node.js 24 (現行 Active LTS) / TypeScript 5 / pnpm / vitest / pino, Python 3.13 / uv / hatchling / pydantic / pytest / ruff, Devcontainer (mcr.microsoft.com/devcontainers/python:3.13 + NodeSource setup_24.x), Bitbucket Pipelines (image: `ubuntu-slim`).
 
@@ -190,7 +190,7 @@ WORKDIR /workspaces/opencode-antigravity-plugin
 ```markdown
 # opencode-antigravity-plugin
 
-OpenAI 互換 HTTP を Cursor から受け、Python の Antigravity ワーカへ stdio JSON-RPC で中継するハイブリッドプラグイン。
+OpenAI 互換 HTTP を OpenCode から受け、Python の Antigravity ワーカへ stdio JSON-RPC で中継するハイブリッドプラグイン。
 
 ## 開発
 
