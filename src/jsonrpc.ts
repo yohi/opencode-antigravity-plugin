@@ -21,10 +21,10 @@ export function encodeRequest(args: {
 }
 
 export function parseMessage(line: string): JsonRpcMessage {
-  const trimmed = line.trimEnd();
-  if (Buffer.byteLength(trimmed, "utf8") > MAX_MESSAGE_BYTES) {
+  if (Buffer.byteLength(line, "utf8") > MAX_MESSAGE_BYTES) {
     throw new Error("jsonrpc: inbound message exceeds 1 MB");
   }
+  const trimmed = line.trimEnd();
   const obj = JSON.parse(trimmed) as JsonRpcMessage;
   if (obj === null || typeof obj !== "object" || obj.jsonrpc !== "2.0") {
     throw new Error("jsonrpc: missing or invalid jsonrpc version");
