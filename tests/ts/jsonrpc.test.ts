@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { encodeRequest, parseMessage, JsonRpcClient } from "../../src/jsonrpc.js";
-import { encodeRequest, parseMessage } from "../../src/jsonrpc.js";
 
 describe("jsonrpc.encodeRequest", () => {
   test("encodes request as NDJSON (single trailing newline)", () => {

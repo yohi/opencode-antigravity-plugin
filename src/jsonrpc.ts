@@ -33,7 +33,7 @@ export function parseMessage(line: string): JsonRpcMessage {
 }
 
 import { BackendTimeoutError } from "./errors.js";
-import type { JsonRpcId, JsonRpcResponse } from "./types.js";
+import type { JsonRpcResponse } from "./types.js";
 
 interface PendingEntry {
   resolve: (result: unknown) => void;
