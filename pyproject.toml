@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "opencode-antigravity"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.6.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/src/opencode_antigravity"]
+
+[tool.hatch.build.targets.wheel.sources]
+"backend/src" = ""
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+    "pyyaml>=6.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "T20"]  # T201 = print, T203 = pprint
+
+[tool.pytest.ini_options]
+pythonpath = ["backend/src"]
+testpaths = ["tests/python"]
