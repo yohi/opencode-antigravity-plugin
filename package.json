@@ -6,17 +6,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test:unit": "vitest run tests/ts",
-    "test:integration": "vitest run tests/ts/backend.test.ts",
-    "test:e2e": "vitest run tests/ts/integration.test.ts",
     "test:python": "uv run pytest",
     "lint:python": "uv run ruff check backend/src tests/python",
-    "verify": "uv run ruff check backend/src tests/python && uv run pytest && pnpm test:unit && pnpm test:integration && pnpm test:e2e"
+    "verify": "uv run ruff check backend/src tests/python && uv run pytest && pnpm test:unit"
+  },
+  "dependencies": {
+    "pino": "^9.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.4.0",
-    "pino": "^9.0.0"
+    "vitest": "^1.4.0"
   }
 }

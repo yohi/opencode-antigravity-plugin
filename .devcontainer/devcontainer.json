@@ -6,7 +6,13 @@
     "11435": { "label": "OpenAI-compatible endpoint", "onAutoForward": "silent" }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "bash -lc 'pnpm install || true && uv sync || true'",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24",
+      "pnpmVersion": "9.15.9"
+    }
+  },
+  "postCreateCommand": "bash -lc 'if [ -f package.json ]; then pnpm install; fi && if [ -f pyproject.toml ]; then uv sync; fi'",
   "customizations": {
     "vscode": {
       "extensions": [
