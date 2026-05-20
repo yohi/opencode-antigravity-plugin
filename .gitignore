@@ -1,0 +1,25 @@
+# Node
+node_modules/
+.pnpm-store/
+dist/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.uv-cache/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+*.tsbuildinfo

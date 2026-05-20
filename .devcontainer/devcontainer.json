@@ -1,0 +1,20 @@
+{
+  "name": "opencode-antigravity-plugin",
+  "build": { "dockerfile": "Dockerfile" },
+  "forwardPorts": [11435],
+  "portsAttributes": {
+    "11435": { "label": "OpenAI-compatible endpoint", "onAutoForward": "silent" }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash -lc 'pnpm install || true && uv sync || true'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}
