@@ -12,7 +12,7 @@
       "pnpmVersion": "9.15.9"
     }
   },
-  "postCreateCommand": "bash -lc '[ -f package.json ] && pnpm install; [ -f pyproject.toml ] && uv sync; true'",
+  "postCreateCommand": "bash -lc 'if [ -f package.json ]; then pnpm install; fi && if [ -f pyproject.toml ]; then uv sync; fi'",
   "customizations": {
     "vscode": {
       "extensions": [
