@@ -46,8 +46,8 @@
 ```text
 opencode-antigravity-plugin/
 ├── .devcontainer/
-│   ├── devcontainer.json        # Node 20 + Python 3.11、ports forward
-│   └── Dockerfile               # mcr.microsoft.com/devcontainers/python:3.11 + Node 20 feature
+│   ├── devcontainer.json        # Node 24 (Active LTS) + Python 3.13、ports forward
+│   └── Dockerfile               # mcr.microsoft.com/devcontainers/python:3.13 + NodeSource setup_24.x
 ├── package.json                 # pnpm, vitest, tsx, @types/node
 ├── pnpm-lock.yaml
 ├── tsconfig.json

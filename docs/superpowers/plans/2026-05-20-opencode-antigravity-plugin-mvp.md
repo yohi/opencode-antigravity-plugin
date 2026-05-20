@@ -6,7 +6,7 @@
 
 **Architecture:** Cursor から `127.0.0.1:11435` への OpenAI 互換 HTTP を TS 親プロセスが受け、Python サブプロセスへ NDJSON over stdio で JSON-RPC 2.0 を中継する案 A 構成。MVP では echo 形式の `chat.completions` を返却し、Antigravity SDK・SSE・MCP・OAuth は Phase 2 以降に後回し。配管（IPC・プロセス管理・クラッシュ復旧・エラー伝搬）の正しさに集中する。
 
-**Tech Stack:** Node.js 20 / TypeScript 5 / pnpm / vitest / pino, Python 3.11 / uv / hatchling / pydantic / pytest / ruff, Devcontainer (mcr.microsoft.com/devcontainers/python:3.11 + Node 20 feature), Bitbucket Pipelines (image: `ubuntu-slim`).
+**Tech Stack:** Node.js 24 (現行 Active LTS) / TypeScript 5 / pnpm / vitest / pino, Python 3.13 / uv / hatchling / pydantic / pytest / ruff, Devcontainer (mcr.microsoft.com/devcontainers/python:3.13 + NodeSource setup_24.x), Bitbucket Pipelines (image: `ubuntu-slim`).
 
 ---
 
@@ -144,10 +144,10 @@ build/
 - [ ] **Step 3: .devcontainer/Dockerfile を作成**
 
 ```dockerfile
-FROM mcr.microsoft.com/devcontainers/python:3.11
+FROM mcr.microsoft.com/devcontainers/python:3.13
 
-# Node 20 を features で入れない構成（軽量化）。代替で nodesource を使う場合はここを差し替え。
-ARG NODE_VERSION=20
+# Node 24 (Active LTS) を NodeSource 経由で導入（features は使わず軽量化）
+ARG NODE_VERSION=24
 
 # pnpm + uv を導入
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
@@ -209,18 +209,18 @@ devcontainer up --workspace-folder .
 devcontainer exec --workspace-folder . bash -lc 'node --version && python --version && pnpm --version && uv --version'
 ```
 
-期待出力: `v20.x.x`, `Python 3.11.x`, `9.x.x`, `0.x.x` の 4 行。
+期待出力: `v24.x.x`, `Python 3.13.x`, `9.x.x`, `0.x.x` の 4 行。
 
 - [ ] **Step 7: コミットと Draft PR 作成**
 
 ```bash
 git add .devcontainer/ .gitignore README.md
-git commit -m "feat(devcontainer): Node 20 + Python 3.11 + pnpm + uv 環境を整備"
+git commit -m "feat(devcontainer): Node 24 + Python 3.13 + pnpm + uv 環境を整備"
 git push -u origin phase-0/devcontainer
 
 gh pr create --draft --base master --title "Phase 0.1: Devcontainer 構築" --body "$(cat <<'EOF'
 ## Summary
-- Node 20 + Python 3.11 の devcontainer (Dockerfile + devcontainer.json)
+- Node 24 (Active LTS) + Python 3.13 の devcontainer (Dockerfile + devcontainer.json)
 - pnpm@9 と uv を導入
 - ポート 11435 をフォワード設定
 - .gitignore と README スケルトン
@@ -283,7 +283,7 @@ echo "OK: $CURRENT_BRANCH は $EXPECTED_BASE から派生しています。"
     "verify": "uv run ruff check backend/src tests/python && uv run pytest && pnpm test:unit && pnpm test:integration && pnpm test:e2e"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
+    "@types/node": "^24.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0",
     "vitest": "^1.4.0",
@@ -322,7 +322,7 @@ build-backend = "hatchling.build"
 [project]
 name = "opencode-antigravity"
 version = "0.1.0"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "pydantic>=2.6.0",
 ]
@@ -331,6 +331,7 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "ruff>=0.4.0",
+    "pyyaml>=6.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -343,11 +344,12 @@ packages = ["backend/src/opencode_antigravity"]
 dev-dependencies = [
     "pytest>=8.0.0",
     "ruff>=0.4.0",
+    "pyyaml>=6.0",
 ]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "T20"]  # T201 = print, T203 = pprint
@@ -475,7 +477,10 @@ definitions:
           - pnpm
           - uv
         script:
-          - apt-get update && apt-get install -y curl python3.11 python3.11-venv nodejs npm
+          # Node 24 (Active LTS) を NodeSource から明示インストール（Dockerfile と同一系列）
+          - apt-get update && apt-get install -y curl ca-certificates gnupg python3.13 python3.13-venv python3-pip
+          - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          - apt-get install -y nodejs
           - npm install -g pnpm@9
           - pip install uv
           - pnpm install --frozen-lockfile
@@ -499,9 +504,11 @@ pipelines:
 
 - [ ] **Step 3: YAML 妥当性を確認**
 
+`uv run` を経由して `pyyaml` を解決します（Task 0.2 で dev-dependencies に追加済み）。
+
 ```bash
 # (devcontainer 内で実行)
-python3 -c "import yaml, sys; yaml.safe_load(open('bitbucket-pipelines.yml')); print('YAML OK')"
+uv run python -c "import yaml; yaml.safe_load(open('bitbucket-pipelines.yml')); print('YAML OK')"
 ```
 
 期待出力: `YAML OK`
@@ -1754,7 +1761,7 @@ uv run pytest -q
 pnpm test:unit
 ```
 
-期待出力: ruff 0 エラー、Python 10 件 PASS、TS 単体テスト（jsonrpc + errors + hello）すべて PASS。
+期待出力: ruff 0 エラー、Python 11 件 PASS（hello 1 + protocol 4 + handlers 4 + server_e2e 2）、TS 単体テスト（jsonrpc + errors + hello）すべて PASS。
 
 - [ ] **Step 4: 統合点を確認するメタテスト追記（軽量）**
 
@@ -2556,7 +2563,7 @@ pnpm verify
 期待出力（順序通り）:
 
 1. `uv run ruff check` → エラー 0
-2. `uv run pytest` → Python 10 件 PASS（hello 1 + protocol 4 + handlers 4 + server_e2e 2 とは別カウント、design.md 上は 8 件 + e2e）
+2. `uv run pytest` → Python **11 件 PASS**（内訳: hello 1 + protocol 4 + handlers 4 + server_e2e 2。設計書 §9.2 が要求する必須 8 件は protocol 4 + handlers 4。hello / server_e2e は補助テスト）
 3. `pnpm test:unit` → TS 単体 PASS（hello 1 + jsonrpc 4 + errors 4 + smoke 1 = 10 件以上）
 4. `pnpm test:integration` → backend.test.ts 5 件 PASS（#14, #15, #16, #17, #18）
 5. `pnpm test:e2e` → integration.test.ts 3 件 PASS（#19, #20, #21）
@@ -2648,7 +2655,7 @@ PR URL を `_pr-urls.md` へ追記。**ここで MVP 完成**。
   - #17, #18 → Task 4.2
   - #19, #20, #21 → Task 5.2
 - [x] **CI/CD要件** master トリガ + image: ubuntu-slim → Task 0.3
-- [x] **Devcontainer 強制** すべての Bash ブロックに `# (devcontainer 内で実行)` を明記
+- [x] **Devcontainer 強制** Task 0.2 以降の全 Bash ブロックに `# (devcontainer 内で実行)` を明記（Task 0.1 は devcontainer 自体を構築する Task のため `# (ホストで実行)` を明示し、main policy の例外規定と整合）
 - [x] **ポカヨケ** 全 14 タスクの Step 1 に `git merge-base --is-ancestor` を埋め込み済み
 - [x] **Draft PR URL 要求** 全タスクの「前提条件」に明記、最終 Step で URL 記録を要求
 
