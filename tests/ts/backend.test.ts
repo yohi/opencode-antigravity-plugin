@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import path from "node:path";
 import { PythonBackend } from "../../src/backend.js";
 
 let backend: PythonBackend;
 
 beforeEach(() => {
+  const pythonBin = process.env.VIRTUAL_ENV
+    ? path.join(process.env.VIRTUAL_ENV, process.platform === "win32" ? "Scripts" : "bin", "python")
+    : "python";
+
   backend = new PythonBackend({
-    pythonBin: "python",
+    pythonBin,
     moduleName: "opencode_antigravity",
     cwd: process.cwd(),
     healthTimeoutMs: 5000,
