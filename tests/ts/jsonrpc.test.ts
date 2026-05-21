@@ -111,4 +111,20 @@ describe("JsonRpcClient", () => {
     expect(warnLogs.some((m) => m.includes("unknown id"))).toBe(true);
     expect(client.pendingCount).toBe(0);
   });
+
+  test("handleInboundLine catches parse errors and warns instead of throwing", () => {
+    const warnLogs: string[] = [];
+    const client = new JsonRpcClient({
+      write: () => {},
+      warn: (msg) => warnLogs.push(msg),
+    });
+
+    // Malformed JSON should not throw
+    expect(() => {
+      client.handleInboundLine('{"jsonrpc":"2.0",');
+    }).not.toThrow();
+
+    expect(warnLogs.length).toBe(1);
+    expect(warnLogs[0]).toContain("handleInboundLine failed to parse message");
+  });
 });

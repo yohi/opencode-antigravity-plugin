@@ -84,7 +84,13 @@ export class JsonRpcClient {
   }
 
   handleInboundLine(line: string): void {
-    const msg = parseMessage(line) as JsonRpcResponse;
+    let msg: JsonRpcResponse;
+    try {
+      msg = parseMessage(line) as JsonRpcResponse;
+    } catch (err) {
+      this.opts.warn?.(`jsonrpc: handleInboundLine failed to parse message: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
     const entry = msg.id == null ? undefined : this.pending.get(msg.id);
     if (!entry) {
       this.opts.warn?.(`unknown id from backend: ${String(msg.id)} (already cleaned up)`);
