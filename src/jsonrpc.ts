@@ -1,4 +1,5 @@
-import type { JsonRpcId, JsonRpcMessage, JsonRpcRequest } from "./types.js";
+import { BackendTimeoutError } from "./errors.js";
+import type { JsonRpcId, JsonRpcMessage, JsonRpcRequest, JsonRpcResponse } from "./types.js";
 
 const MAX_MESSAGE_BYTES = 1024 * 1024; // 1 MB (design §7.4)
 
@@ -32,9 +33,6 @@ export function parseMessage(line: string): JsonRpcMessage {
   return obj;
 }
 
-import { BackendTimeoutError } from "./errors.js";
-import type { JsonRpcId, JsonRpcResponse } from "./types.js";
-
 interface PendingEntry {
   resolve: (result: unknown) => void;
   reject: (err: Error) => void;
@@ -58,15 +56,30 @@ export class JsonRpcClient {
 
   call(method: string, params: unknown, { timeoutMs }: { timeoutMs: number }): Promise<unknown> {
     const id = this.nextId++;
-    const line = encodeRequest({ id, method, params });
     return new Promise((resolve, reject) => {
+      let line: string;
+      try {
+        line = encodeRequest({ id, method, params });
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+
       const timeoutHandle = setTimeout(() => {
         // design §7.5: delete FIRST, then reject
         this.pending.delete(id);
         reject(new BackendTimeoutError(`call timed out after ${timeoutMs}ms`));
       }, timeoutMs);
+
       this.pending.set(id, { resolve, reject, timeoutHandle });
-      this.opts.write(line);
+
+      try {
+        this.opts.write(line);
+      } catch (err) {
+        clearTimeout(timeoutHandle);
+        this.pending.delete(id);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
     });
   }
 

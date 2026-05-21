@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { encodeRequest, parseMessage, JsonRpcClient } from "../../src/jsonrpc.js";
-import { encodeRequest, parseMessage } from "../../src/jsonrpc.js";
+import { BackendTimeoutError } from "../../src/errors.js";
 
 describe("jsonrpc.encodeRequest", () => {
   test("encodes request as NDJSON (single trailing newline)", () => {
@@ -64,7 +64,6 @@ describe("jsonrpc.parseMessage", () => {
     expect(() => parseMessage(largeMessage)).toThrow("jsonrpc: inbound message exceeds 1 MB");
   });
 });
-import { BackendTimeoutError } from "../../src/errors.js";
 
 describe("JsonRpcClient", () => {
   test("resolves promise by id when response arrives", async () => {
