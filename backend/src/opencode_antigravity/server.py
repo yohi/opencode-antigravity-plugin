@@ -39,7 +39,8 @@ def run(stdin: BinaryIO, stdout: BinaryIO, handlers: dict[str, Handler] | None =
             line = raw.decode("utf-8").rstrip("\n")
         except UnicodeDecodeError:
             logger.warning("invalid utf-8 sequence in input")
-            out = format_error(JsonRpcError(id=None, code=-32700, message="Parse error: invalid utf-8"))
+            err = JsonRpcError(id=None, code=-32700, message="Parse error: invalid utf-8")
+            out = format_error(err)
             stdout.write((out + "\n").encode("utf-8"))
             stdout.flush()
             continue
