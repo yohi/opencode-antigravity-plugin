@@ -12,7 +12,7 @@ class JsonRpcRequest(BaseModel):
     jsonrpc: Literal["2.0"]
     id: int | str
     method: str
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: list[Any] | dict[str, Any] = Field(default_factory=dict)
 
 
 class JsonRpcSuccess(BaseModel):
@@ -33,7 +33,7 @@ def parse_request(line: str) -> JsonRpcRequest:
         obj = json.loads(line)
     except json.JSONDecodeError as e:
         raise ValueError(f"parse error: {e}") from e
-    if obj.get("jsonrpc") != "2.0":
+    if not isinstance(obj, dict) or obj.get("jsonrpc") != "2.0":
         raise ValueError("invalid jsonrpc version (expected '2.0')")
     try:
         return JsonRpcRequest.model_validate(obj)
