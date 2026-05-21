@@ -1,15 +1,23 @@
 import json
+import os
 import select
 import subprocess
 import sys
 
 
-def _spawn() -> subprocess.Popen[bytes]:
+def _spawn(extra_env: dict[str, str] | None = None) -> subprocess.Popen[bytes]:
+    env = os.environ.copy()
+    env.update(extra_env or {})
+    # Enable test handlers by default for testing
+    if "OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS" not in env:
+        env["OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS"] = "true"
+
     return subprocess.Popen(
         [sys.executable, "-m", "opencode_antigravity"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=env,
     )
 
 
@@ -112,5 +120,17 @@ def test_internal_error_masking() -> None:
         assert resp["error"]["code"] == -32603
         assert resp["error"]["message"] == "Internal error"
         assert resp["id"] == 1
+    finally:
+        _cleanup(proc)
+
+
+def test_crash_handler_disabled_by_default() -> None:
+    # Explicitly disable test handlers
+    proc = _spawn(extra_env={"OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS": "false"})
+    try:
+        resp = _rpc(proc, {"jsonrpc": "2.0", "id": 1, "method": "__crash__", "params": {}})
+        # Method should not be found
+        assert resp["error"]["code"] == -32601
+        assert "Method not found" in resp["error"]["message"]
     finally:
         _cleanup(proc)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from collections.abc import Callable
 from typing import Any, BinaryIO
@@ -24,15 +25,19 @@ Handler = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 def _default_handlers() -> dict[str, Handler]:
-    def _crash_handler(_params: dict[str, Any]) -> dict[str, Any]:
-        raise RuntimeError("simulated crash")
-
-    return {
+    handlers: dict[str, Handler] = {
         "health": health,
         "echo": echo,
         "chat.completions": chat_completions,
-        "__crash__": _crash_handler,
     }
+
+    if os.environ.get("OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS", "").lower() == "true":
+        def _crash_handler(_params: dict[str, Any]) -> dict[str, Any]:
+            raise RuntimeError("simulated crash")
+
+        handlers["__crash__"] = _crash_handler
+
+    return handlers
 
 
 def run(stdin: BinaryIO, stdout: BinaryIO, handlers: dict[str, Handler] | None = None) -> None:
