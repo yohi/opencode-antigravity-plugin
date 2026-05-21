@@ -36,7 +36,7 @@ export interface OpenAIChatRequest {
 export interface OpenAIChatChoice {
   index: number;
   message: OpenAIChatMessage;
-  finish_reason: "stop" | "length" | "content_filter";
+  finish_reason: "stop" | "length" | "content_filter" | "tool_calls" | "function_call" | null;
 }
 
 export interface OpenAIChatResponse {

@@ -1,6 +1,10 @@
+import json
+
 import pytest
 from opencode_antigravity.protocol import (
     JsonRpcError,
+    JsonRpcInvalidRequestError,
+    JsonRpcParseError,
     JsonRpcRequest,
     JsonRpcSuccess,
     format_error,
@@ -10,16 +14,59 @@ from opencode_antigravity.protocol import (
 
 
 def test_parse_valid_request() -> None:
-    req = parse_request('{"jsonrpc":"2.0","id":1,"method":"echo","params":{"text":"hi"}}')
+    # ... (unchanged)
+    req1 = parse_request('{"jsonrpc":"2.0","id":1,"method":"echo","params":{"text":"hi"}}')
+    assert isinstance(req1, JsonRpcRequest)
+    assert req1.params == {"text": "hi"}
+
+    # Test with list params (JSON-RPC 2.0 allows positional params)
+    req2 = parse_request('{"jsonrpc":"2.0","id":2,"method":"add","params":[1, 2]}')
+    assert isinstance(req2, JsonRpcRequest)
+    assert req2.params == [1, 2]
+
+
+def test_parse_notification() -> None:
+    # Notification has no id
+    req = parse_request('{"jsonrpc":"2.0","method":"notify","params":{}}')
     assert isinstance(req, JsonRpcRequest)
-    assert req.id == 1
-    assert req.method == "echo"
-    assert req.params == {"text": "hi"}
+    assert req.id is None
+    assert req.method == "notify"
+
+
+def test_parse_request_with_null_id() -> None:
+    # JSON-RPC 2.0 allows id: null
+    req = parse_request('{"jsonrpc":"2.0","id":null,"method":"echo","params":{}}')
+    assert isinstance(req, JsonRpcRequest)
+    assert req.id is None
+
+
+def test_parse_malformed_json() -> None:
+    with pytest.raises(JsonRpcParseError, match="parse error"):
+        parse_request("{invalid")
 
 
 def test_parse_invalid_jsonrpc_version() -> None:
-    with pytest.raises(ValueError, match="jsonrpc version"):
+    with pytest.raises(JsonRpcInvalidRequestError, match="jsonrpc version"):
         parse_request('{"jsonrpc":"1.0","id":1,"method":"echo","params":{}}')
+
+
+def test_parse_non_dict_input() -> None:
+    with pytest.raises(JsonRpcInvalidRequestError, match="expected object"):
+        parse_request("[]")
+    with pytest.raises(JsonRpcInvalidRequestError, match="expected object"):
+        parse_request("42")
+
+
+def test_parse_missing_required_fields() -> None:
+    # Missing 'method'
+    with pytest.raises(JsonRpcInvalidRequestError, match="invalid request shape"):
+        parse_request('{"jsonrpc":"2.0","id":1}')
+
+
+def test_parse_extra_fields_forbidden() -> None:
+    # extra='forbid' should reject 'unknown' field
+    with pytest.raises(JsonRpcInvalidRequestError, match="Extra inputs are not permitted"):
+        parse_request('{"jsonrpc":"2.0","id":1,"method":"echo","unknown":"field"}')
 
 
 def test_format_response() -> None:
@@ -27,7 +74,16 @@ def test_format_response() -> None:
     assert resp == '{"jsonrpc":"2.0","id":1,"result":{"text":"hi"}}'
 
 
-def test_format_error_with_code() -> None:
+def test_format_error_with_data() -> None:
+    err_str = format_error(
+        JsonRpcError(id=1, code=-32602, message="Invalid params", data={"key": "val"})
+    )
+    parsed = json.loads(err_str)
+    assert parsed["error"]["data"] == {"key": "val"}
+    assert parsed["error"]["code"] == -32602
+
+
+def test_format_error_without_data() -> None:
     err = format_error(JsonRpcError(id=1, code=-32602, message="Invalid params"))
-    assert '"code":-32602' in err
-    assert '"message":"Invalid params"' in err
+    assert err == '{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}}'
+
