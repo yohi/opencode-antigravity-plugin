@@ -1,6 +1,8 @@
 import pytest
 from opencode_antigravity.protocol import (
     JsonRpcError,
+    JsonRpcInvalidRequestError,
+    JsonRpcParseError,
     JsonRpcRequest,
     JsonRpcSuccess,
     format_error,
@@ -10,7 +12,7 @@ from opencode_antigravity.protocol import (
 
 
 def test_parse_valid_request() -> None:
-    # Test with dict params
+    # ... (unchanged)
     req1 = parse_request('{"jsonrpc":"2.0","id":1,"method":"echo","params":{"text":"hi"}}')
     assert isinstance(req1, JsonRpcRequest)
     assert req1.params == {"text": "hi"}
@@ -21,22 +23,44 @@ def test_parse_valid_request() -> None:
     assert req2.params == [1, 2]
 
 
+def test_parse_malformed_json() -> None:
+    with pytest.raises(JsonRpcParseError, match="parse error"):
+        parse_request("{invalid")
+
+
 def test_parse_invalid_jsonrpc_version() -> None:
-    with pytest.raises(ValueError, match="jsonrpc version"):
+    with pytest.raises(JsonRpcInvalidRequestError, match="jsonrpc version"):
         parse_request('{"jsonrpc":"1.0","id":1,"method":"echo","params":{}}')
 
 
 def test_parse_non_dict_input() -> None:
-    # Input like "[]" should raise ValueError, not AttributeError
-    with pytest.raises(ValueError, match="invalid jsonrpc version"):
+    with pytest.raises(JsonRpcInvalidRequestError, match="expected object"):
         parse_request("[]")
-    with pytest.raises(ValueError, match="invalid jsonrpc version"):
+    with pytest.raises(JsonRpcInvalidRequestError, match="expected object"):
         parse_request("42")
+
+
+def test_parse_missing_required_fields() -> None:
+    # Missing 'method'
+    with pytest.raises(JsonRpcInvalidRequestError, match="invalid request shape"):
+        parse_request('{"jsonrpc":"2.0","id":1}')
+
+
+def test_parse_extra_fields_forbidden() -> None:
+    # extra='forbid' should reject 'unknown' field
+    with pytest.raises(JsonRpcInvalidRequestError, match="Extra inputs are not permitted"):
+        parse_request('{"jsonrpc":"2.0","id":1,"method":"echo","unknown":"field"}')
 
 
 def test_format_response() -> None:
     resp = format_response(JsonRpcSuccess(id=1, result={"text": "hi"}))
     assert resp == '{"jsonrpc":"2.0","id":1,"result":{"text":"hi"}}'
+
+
+def test_format_error_with_data() -> None:
+    err = format_error(JsonRpcError(id=1, code=-32602, message="Invalid params", data={"key": "val"}))
+    assert '"data":{"key":"val"}' in err
+    assert '"code":-32602' in err
 
 
 def test_format_error_with_code() -> None:

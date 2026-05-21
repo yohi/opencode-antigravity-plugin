@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -23,7 +23,7 @@ def health(_params: dict[str, Any]) -> dict[str, Any]:
 
 
 class _ChatMessage(BaseModel):
-    role: str
+    role: Literal["user", "assistant", "system"]
     content: str
 
 
@@ -41,8 +41,8 @@ def chat_completions(params: dict[str, Any]) -> dict[str, Any]:
     last_user_msg_iter = (m for m in reversed(req.messages) if m.role == "user")
     try:
         last_user_msg = next(last_user_msg_iter)
-    except StopIteration:
-        raise ValueError("no user messages")
+    except StopIteration as e:
+        raise ValueError("no user messages") from e
 
     reply = f"[echo] {last_user_msg.content}"
     return {
