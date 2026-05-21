@@ -45,4 +45,4 @@ jobs:
           pnpm install --frozen-lockfile
 
       - name: Verify
-        run: pnpm verify
+        run: uv run pnpm verify
