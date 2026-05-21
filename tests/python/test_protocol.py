@@ -73,7 +73,9 @@ def test_format_response() -> None:
 
 
 def test_format_error_with_data() -> None:
-    err = format_error(JsonRpcError(id=1, code=-32602, message="Invalid params", data={"key": "val"}))
+    err = format_error(
+        JsonRpcError(id=1, code=-32602, message="Invalid params", data={"key": "val"})
+    )
     assert '"data":{"key":"val"}' in err
     assert '"code":-32602' in err
 
