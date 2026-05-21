@@ -55,6 +55,9 @@ export class JsonRpcClient {
   }
 
   call(method: string, params: unknown, { timeoutMs }: { timeoutMs: number }): Promise<unknown> {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      throw new RangeError("timeoutMs must be a finite number > 0");
+    }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       let line: string;
@@ -84,16 +87,29 @@ export class JsonRpcClient {
   }
 
   handleInboundLine(line: string): void {
-    let msg: JsonRpcResponse;
+    let msg: any;
     try {
-      msg = parseMessage(line) as JsonRpcResponse;
+      msg = parseMessage(line);
     } catch (err) {
       this.opts.warn?.(`jsonrpc: handleInboundLine failed to parse message: ${err instanceof Error ? err.message : String(err)}`);
       return;
     }
+
+    // Explicitly validate shape: must NOT be a request (no 'method'), 
+    // and must be a response (has 'result' or 'error').
+    const isResponse = !("method" in msg) && ("result" in msg || "error" in msg);
+    if (!isResponse) {
+      this.opts.warn?.(`jsonrpc: handleInboundLine received non-response message shape (id: ${String(msg.id)})`);
+      return;
+    }
+
     const entry = msg.id == null ? undefined : this.pending.get(msg.id);
     if (!entry) {
-      this.opts.warn?.(`unknown id from backend: ${String(msg.id)} (already cleaned up)`);
+      if (msg.id == null) {
+        this.opts.warn?.("jsonrpc: backend returned error with id: null (likely request parse error)");
+      } else {
+        this.opts.warn?.(`unknown id from backend: ${String(msg.id)} (already cleaned up)`);
+      }
       return;
     }
     // design §7.5: delete FIRST, then resolve/reject

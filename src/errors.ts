@@ -65,6 +65,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
     };
   }
   if (err instanceof ProtocolError) {
+    logger.warn({ err }, "Protocol error");
     return {
       status: 400,
       body: { error: { type: "invalid_request_error", message: err.message } },
