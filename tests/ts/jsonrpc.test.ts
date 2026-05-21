@@ -127,4 +127,27 @@ describe("JsonRpcClient", () => {
     expect(warnLogs.length).toBe(1);
     expect(warnLogs[0]).toContain("handleInboundLine failed to parse message");
   });
+
+  test("call returns Promise.reject for invalid timeoutMs", async () => {
+    const client = new JsonRpcClient({ write: () => {} });
+    await expect(client.call("foo", {}, { timeoutMs: -1 })).rejects.toThrow(RangeError);
+    await expect(client.call("foo", {}, { timeoutMs: Infinity })).rejects.toThrow(RangeError);
+  });
+
+  test("handleInboundLine rejects dual-field response (result AND error)", () => {
+    const warnLogs: string[] = [];
+    const client = new JsonRpcClient({
+      write: () => {},
+      warn: (msg) => warnLogs.push(msg),
+    });
+
+    client.handleInboundLine(JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      result: "ok",
+      error: { code: -32000, message: "oops" }
+    }));
+
+    expect(warnLogs.some(m => m.includes("non-response message shape"))).toBe(true);
+  });
 });

@@ -56,7 +56,7 @@ export class JsonRpcClient {
 
   call(method: string, params: unknown, { timeoutMs }: { timeoutMs: number }): Promise<unknown> {
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-      throw new RangeError("timeoutMs must be a finite number > 0");
+      return Promise.reject(new RangeError("timeoutMs must be a finite number > 0"));
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
@@ -96,8 +96,8 @@ export class JsonRpcClient {
     }
 
     // Explicitly validate shape: must NOT be a request (no 'method'), 
-    // and must be a response (has 'result' or 'error').
-    const isResponse = !("method" in msg) && ("result" in msg || "error" in msg);
+    // and must be a response (has EXACTLY one of 'result' or 'error').
+    const isResponse = !("method" in msg) && (("result" in msg) !== ("error" in msg));
     if (!isResponse) {
       this.opts.warn?.(`jsonrpc: handleInboundLine received non-response message shape (id: ${String(msg.id)})`);
       return;
