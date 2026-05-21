@@ -7,10 +7,10 @@ import sys
 
 def _spawn(extra_env: dict[str, str] | None = None) -> subprocess.Popen[bytes]:
     env = os.environ.copy()
-    env.update(extra_env or {})
-    # Enable test handlers by default for testing
-    if "OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS" not in env:
-        env["OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS"] = "true"
+    # Ensure a deterministic default for testing, then allow overrides
+    env["OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS"] = "true"
+    if extra_env:
+        env.update(extra_env)
 
     return subprocess.Popen(
         [sys.executable, "-m", "opencode_antigravity"],
