@@ -38,7 +38,12 @@ describe("PythonBackend lifecycle", () => {
     expect(pid).toBeGreaterThan(0);
     process.kill(pid, "SIGKILL");
     // 再起動完了を待つ (最大 ~3 秒)
-    await new Promise<void>((resolve) => backend.once("ready", () => resolve()));
+    await new Promise<void>((resolve, reject) => {
+      backend.once("ready", () => resolve());
+      backend.once("permanently_failed", () =>
+        reject(new Error("Backend failed permanently")),
+      );
+    });
     expect(backend.restartCount).toBe(1);
     const res = (await backend.call("health", {})) as { status: string };
     expect(res.status).toBe("ok");

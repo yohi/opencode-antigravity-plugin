@@ -22,6 +22,7 @@ export class PythonBackend extends EventEmitter {
   private proc: ChildProcessWithoutNullStreams | null = null;
   private client: JsonRpcClient | null = null;
   private state: BackendState = "stopped";
+  private isRestarting = false;
   private _restartCount = 0;
   private stdoutBuf = "";
 
@@ -42,6 +43,9 @@ export class PythonBackend extends EventEmitter {
   }
 
   async start(): Promise<void> {
+    if (this.state !== "stopped") {
+      return Promise.reject(new Error(`Cannot start from state: ${this.state}`));
+    }
     this.state = "starting";
     this.spawnAndWire();
     await this.waitForHealthy();
@@ -71,6 +75,7 @@ export class PythonBackend extends EventEmitter {
   }
 
   private spawnAndWire(): void {
+    this.stdoutBuf = "";
     const proc = spawn(this.opts.pythonBin, ["-m", this.opts.moduleName], {
       cwd: this.opts.cwd,
       stdio: ["pipe", "pipe", "inherit"],
@@ -87,6 +92,14 @@ export class PythonBackend extends EventEmitter {
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk: string) => this.onStdoutChunk(chunk));
     proc.once("exit", (code, signal) => this.onProcExit(code, signal));
+    proc.on("error", (err) => {
+      if (this.state === "stopped") return;
+      const error = new BackendCrashedError(`python spawn error: ${err.message}`);
+      this.client?.rejectAll(error);
+      this.proc = null;
+      this.client = null;
+      void this.attemptRestart();
+    });
   }
 
   private onStdoutChunk(chunk: string): void {
@@ -117,22 +130,40 @@ export class PythonBackend extends EventEmitter {
   }
 
   private async attemptRestart(): Promise<void> {
+    if (this.isRestarting || this.state === "stopped" || this.state === "permanently_failed") {
+      return;
+    }
+    this.isRestarting = true;
     this.state = "restarting";
     this.emit("restarting");
     if (this._restartCount >= this.opts.maxRestarts) {
       this.state = "permanently_failed";
+      this.isRestarting = false;
       this.emit("permanently_failed");
       return;
     }
     const wait = this.opts.backoffMs[this._restartCount] ?? 4000;
     this._restartCount += 1;
     await new Promise((r) => setTimeout(r, wait));
+
+    if (this.state === "stopped" || this.state === "permanently_failed") {
+      this.isRestarting = false;
+      return;
+    }
+
     try {
       this.spawnAndWire();
       await this.waitForHealthy();
       this.state = "ready";
+      this.isRestarting = false;
       this.emit("ready");
     } catch {
+      if (this.proc) {
+        this.proc.kill("SIGKILL");
+      }
+      this.proc = null;
+      this.client = null;
+      this.isRestarting = false;
       void this.attemptRestart();
     }
   }
