@@ -9,42 +9,45 @@ import {
 } from "../../src/errors.js";
 
 describe("toOpenAIError", () => {
-  test("converts BackendCrashedError to OpenAI 503 backend_unavailable", () => {
+  test("converts BackendCrashedError to OpenAI 503 backend_unavailable with sanitized message", () => {
     const { status, body } = toOpenAIError(new BackendCrashedError("python died"));
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toBe("backend restarting, retry later: python died");
+    expect(body.error.message).toBe("backend restarting, retry later");
   });
 
-  test("converts BackendTimeoutError to 504 timeout", () => {
+  test("converts BackendTimeoutError to 504 timeout with sanitized message", () => {
     const { status, body } = toOpenAIError(new BackendTimeoutError("60s exceeded"));
     expect(status).toBe(504);
     expect(body.error.type).toBe("timeout");
+    expect(body.error.message).toBe("request timed out");
   });
 
-  test("converts BackendPermanentlyFailedError to 503 with permanently failed message", () => {
+  test("converts BackendPermanentlyFailedError to 503 with sanitized message", () => {
     const { status, body } = toOpenAIError(new BackendPermanentlyFailedError());
     expect(status).toBe(503);
     expect(body.error.type).toBe("permanently_failed");
-    expect(body.error.message).toMatch(/permanently failed/);
+    expect(body.error.message).toBe("service temporarily unavailable");
   });
 
-  test("converts ProtocolError to 400 invalid_request_error", () => {
+  test("converts ProtocolError to 400 invalid_request_error (keeps original message)", () => {
     const { status, body } = toOpenAIError(new ProtocolError("bad json"));
     expect(status).toBe(400);
     expect(body.error.type).toBe("invalid_request_error");
+    expect(body.error.message).toBe("bad json");
   });
 
-  test("converts NotImplementedError to 501 not_implemented", () => {
+  test("converts NotImplementedError to 501 not_implemented with sanitized message", () => {
     const { status, body } = toOpenAIError(new NotImplementedError("stream not supported"));
     expect(status).toBe(501);
     expect(body.error.type).toBe("not_implemented");
+    expect(body.error.message).toBe("feature not implemented");
   });
 
-  test("converts plain Error to 500 server_error", () => {
+  test("converts plain Error to 500 server_error with sanitized message", () => {
     const { status, body } = toOpenAIError(new Error("unexpected failure"));
     expect(status).toBe(500);
     expect(body.error.type).toBe("server_error");
-    expect(body.error.message).toBe("unexpected failure");
+    expect(body.error.message).toBe("internal server error");
   });
 });
