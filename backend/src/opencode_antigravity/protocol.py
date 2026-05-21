@@ -14,7 +14,7 @@ class JsonRpcModel(BaseModel):
 
 class JsonRpcRequest(JsonRpcModel):
     jsonrpc: Literal["2.0"]
-    id: int | str
+    id: int | str | None = None
     method: str
     params: list[Any] | dict[str, Any] = Field(default_factory=dict)
 

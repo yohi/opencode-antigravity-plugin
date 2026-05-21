@@ -23,6 +23,21 @@ def test_parse_valid_request() -> None:
     assert req2.params == [1, 2]
 
 
+def test_parse_notification() -> None:
+    # Notification has no id
+    req = parse_request('{"jsonrpc":"2.0","method":"notify","params":{}}')
+    assert isinstance(req, JsonRpcRequest)
+    assert req.id is None
+    assert req.method == "notify"
+
+
+def test_parse_request_with_null_id() -> None:
+    # JSON-RPC 2.0 allows id: null
+    req = parse_request('{"jsonrpc":"2.0","id":null,"method":"echo","params":{}}')
+    assert isinstance(req, JsonRpcRequest)
+    assert req.id is None
+
+
 def test_parse_malformed_json() -> None:
     with pytest.raises(JsonRpcParseError, match="parse error"):
         parse_request("{invalid")

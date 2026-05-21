@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def echo(params: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(params, dict):
+        raise ValueError("params must be a dict")
     text = params.get("text", "")
     return {"text": text}
 

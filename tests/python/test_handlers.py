@@ -10,6 +10,12 @@ def test_echo() -> None:
     assert echo({"text": "hi"}) == {"text": "hi"}
 
 
+def test_echo_invalid_params_list() -> None:
+    # params must be a dict
+    with pytest.raises(ValueError, match="params must be a dict"):
+        echo(["hi"])  # type: ignore[arg-type]
+
+
 def test_health() -> None:
     result = health({})
     assert result["status"] == "ok"
