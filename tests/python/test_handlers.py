@@ -36,6 +36,20 @@ def test_chat_completions_returns_openai_format() -> None:
     }
 
 
+def test_chat_completions_uses_last_user_message() -> None:
+    result = chat_completions(
+        {
+            "model": "opencode-antigravity-echo",
+            "messages": [
+                {"role": "user", "content": "first"},
+                {"role": "assistant", "content": "hello"},
+                {"role": "user", "content": "last"},
+            ],
+        }
+    )
+    assert result["choices"][0]["message"]["content"] == "[echo] last"
+
+
 def test_chat_completions_invalid_params() -> None:
     with pytest.raises(ValueError):
         chat_completions({"model": "x"})  # messages 欠落
