@@ -1,9 +1,17 @@
+import { logger } from "./logger.js";
+
 export class BackendCrashedError extends Error {
   readonly name = "BackendCrashedError";
+  constructor(message = "backend crashed") {
+    super(message);
+  }
 }
 
 export class BackendTimeoutError extends Error {
   readonly name = "BackendTimeoutError";
+  constructor(message = "backend timed out") {
+    super(message);
+  }
 }
 
 export class BackendPermanentlyFailedError extends Error {
@@ -27,29 +35,33 @@ export interface OpenAIErrorBody {
 
 export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBody } {
   if (err instanceof BackendPermanentlyFailedError) {
+    logger.error({ err }, "Backend permanently failed");
     return {
       status: 503,
-      body: { error: { type: "backend_unavailable", message: err.message } },
+      body: { error: { type: "permanently_failed", message: "service temporarily unavailable" } },
     };
   }
   if (err instanceof BackendCrashedError) {
+    logger.error({ err }, "Backend crashed");
     return {
       status: 503,
       body: {
         error: {
           type: "backend_unavailable",
-          message: `backend restarting, retry later: ${err.message}`,
+          message: "backend restarting, retry later",
         },
       },
     };
   }
   if (err instanceof BackendTimeoutError) {
-    return { status: 504, body: { error: { type: "timeout", message: err.message } } };
+    logger.error({ err }, "Backend timeout");
+    return { status: 504, body: { error: { type: "timeout", message: "request timed out" } } };
   }
   if (err instanceof NotImplementedError) {
+    logger.warn({ err }, "Not implemented");
     return {
       status: 501,
-      body: { error: { type: "not_implemented", message: err.message } },
+      body: { error: { type: "not_implemented", message: "feature not implemented" } },
     };
   }
   if (err instanceof ProtocolError) {
@@ -58,5 +70,6 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
       body: { error: { type: "invalid_request_error", message: err.message } },
     };
   }
-  return { status: 500, body: { error: { type: "server_error", message: err.message } } };
+  logger.error({ err }, "Unexpected server error");
+  return { status: 500, body: { error: { type: "server_error", message: "internal server error" } } };
 }
