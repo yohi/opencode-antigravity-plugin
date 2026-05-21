@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import path from "node:path";
 import { JsonRpcClient } from "./jsonrpc.js";
 import {
   BackendCrashedError,
@@ -90,7 +91,7 @@ export class PythonBackend extends EventEmitter {
       stdio: ["pipe", "pipe", "inherit"],
       env: {
         ...process.env,
-        PYTHONPATH: `${process.env.PYTHONPATH ?? ""}${process.env.PYTHONPATH ? ":" : ""}${this.opts.cwd}/backend/src`,
+        PYTHONPATH: `${process.env.PYTHONPATH ?? ""}${process.env.PYTHONPATH ? path.delimiter : ""}${this.opts.cwd}/backend/src`,
       },
     });
     this.proc = proc;
