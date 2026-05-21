@@ -24,10 +24,14 @@ Handler = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 def _default_handlers() -> dict[str, Handler]:
+    def _crash_handler(_params: dict[str, Any]) -> dict[str, Any]:
+        raise RuntimeError("simulated crash")
+
     return {
         "health": health,
         "echo": echo,
         "chat.completions": chat_completions,
+        "__crash__": _crash_handler,
     }
 
 
@@ -62,9 +66,9 @@ def _process_one(line: str, table: dict[str, Handler]) -> str | None:
     except JsonRpcInvalidRequestError as e:
         logger.warning("invalid request: %s", e)
         return format_error(JsonRpcError(id=None, code=-32600, message=f"Invalid Request: {e}"))
-    except Exception as e:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         logger.exception("unexpected error during parse")
-        return format_error(JsonRpcError(id=None, code=-32700, message=f"Parse error: {e}"))
+        return format_error(JsonRpcError(id=None, code=-32700, message="Parse error"))
 
     if req.id is None:
         # Notification: execute handler but do not return response

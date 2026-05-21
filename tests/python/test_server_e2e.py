@@ -104,29 +104,13 @@ def test_invalid_request_code() -> None:
 def test_internal_error_masking() -> None:
     proc = _spawn()
     try:
-        # We need a call that causes an unexpected Exception (not ValueError).
-        # In chat_completions, if we provide params that pass pydantic validation
-        # but cause a crash later (though currently it seems robust), 
-        # it would trigger the catch-all Exception.
-        # Here we test that if the method handler crashes, the message is masked.
+        # Use the hidden __crash__ method to trigger an internal Exception (-32603).
+        resp = _rpc(proc, {"jsonrpc": "2.0", "id": 1, "method": "__crash__", "params": {}})
         
-        # chat.completions expects 'model' and 'messages' (min_length=1).
-        # If we send correct shape but something that might crash internally.
-        # Since we don't have a guaranteed crash method, let's at least assert 
-        # the behavior for a known error case that triggers masked output if possible.
-        # Actually, if we send invalid method it's -32601.
-        # If we send invalid params it's -32602 (ValueError).
-        
-        # For the sake of the test being "effective", let's ensure we check 
-        # a response that SHOULD be masked if it were an Exception.
-        # If we want to FORCE an internal error for testing, we'd need to mock.
-        # But per instructions, let's at least check the structure of an error response.
-        resp = _rpc(proc, {"jsonrpc": "2.0", "id": 1, "method": "chat.completions", "params": {}})
-        # This currently raises ValueError ("invalid chat.completions params") -> -32602
+        # Unconditionally assert that the internal error is caught and masked.
         assert "error" in resp
+        assert resp["error"]["code"] == -32603
+        assert resp["error"]["message"] == "Internal error"
         assert resp["id"] == 1
-        
-        if resp["error"]["code"] == -32603:
-            assert resp["error"]["message"] == "Internal error"
     finally:
         _cleanup(proc)
