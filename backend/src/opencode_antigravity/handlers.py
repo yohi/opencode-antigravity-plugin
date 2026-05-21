@@ -38,10 +38,12 @@ def chat_completions(params: dict[str, Any]) -> dict[str, Any]:
     except ValidationError as e:
         raise ValueError(f"invalid chat.completions params: {e}") from e
 
-    last_user_msg = next(
-        (m for m in reversed(req.messages) if m.role == "user"),
-        req.messages[-1],
-    )
+    last_user_msg_iter = (m for m in reversed(req.messages) if m.role == "user")
+    try:
+        last_user_msg = next(last_user_msg_iter)
+    except StopIteration:
+        raise ValueError("no user messages")
+
     reply = f"[echo] {last_user_msg.content}"
     return {
         "id": f"chatcmpl-{secrets.token_hex(12)}",
@@ -54,4 +56,9 @@ def chat_completions(params: dict[str, Any]) -> dict[str, Any]:
                 "finish_reason": "stop",
             }
         ],
+        "usage": {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        },
     }

@@ -29,8 +29,26 @@ def test_chat_completions_returns_openai_format() -> None:
     assert result["choices"][0]["message"]["content"] == "[echo] hi"
     assert result["choices"][0]["finish_reason"] == "stop"
     assert result["id"].startswith("chatcmpl-")
+    assert result["usage"] == {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    }
 
 
 def test_chat_completions_invalid_params() -> None:
     with pytest.raises(ValueError):
         chat_completions({"model": "x"})  # messages 欠落
+
+
+def test_chat_completions_missing_user_role() -> None:
+    with pytest.raises(ValueError, match="no user messages"):
+        chat_completions(
+            {
+                "model": "x",
+                "messages": [
+                    {"role": "system", "content": "you are a bot"},
+                    {"role": "assistant", "content": "hello"},
+                ],
+            }
+        )
