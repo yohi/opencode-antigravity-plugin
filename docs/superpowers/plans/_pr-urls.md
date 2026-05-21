@@ -6,3 +6,4 @@
 | Task 0.2 | https://github.com/yohi/opencode-antigravity-plugin/pull/5 |
 | Task 0.3 | https://github.com/yohi/opencode-antigravity-plugin/pull/6 |
 | Task 1.1 | https://github.com/yohi/opencode-antigravity-plugin/pull/8 |
+| Task 1.2 | https://github.com/yohi/opencode-antigravity-plugin/pull/11 |
