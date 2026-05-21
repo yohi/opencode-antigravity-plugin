@@ -64,8 +64,7 @@ export class PythonBackend extends EventEmitter {
       this.proc = null;
       this.client = null;
       // permanently_failed に到達するまで attemptRestart に委ねる
-      const state = this.state as BackendState;
-      if (state !== "restarting" && state !== "permanently_failed") {
+      if (this.state !== "restarting" && this.state !== "permanently_failed") {
         void this.attemptRestart();
       }
       throw crash;
@@ -101,6 +100,7 @@ export class PythonBackend extends EventEmitter {
     this.proc = null;
     this.client = null;
     this.isRestarting = false;
+    this._restartCount = 0;
   }
 
   private spawnAndWire(): void {
@@ -136,7 +136,9 @@ export class PythonBackend extends EventEmitter {
       this.client?.rejectAll(error);
       this.proc = null;
       this.client = null;
-      void this.attemptRestart();
+      if (this.state === "ready") {
+        void this.attemptRestart();
+      }
     });
   }
 
@@ -191,8 +193,7 @@ export class PythonBackend extends EventEmitter {
         resolve();
       }, wait);
     });
-    const stateAfterBackoff = this.state as BackendState;
-    if (stateAfterBackoff === "stopped" || stateAfterBackoff === "permanently_failed") {
+    if (this.state === "stopped" || this.state === "permanently_failed") {
       this.isRestarting = false;
       return;
     }
