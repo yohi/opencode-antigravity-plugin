@@ -24,6 +24,7 @@ export class PythonBackend extends EventEmitter {
   private state: BackendState = "stopped";
   private isRestarting = false;
   private _restartCount = 0;
+  private generation = 0;
   private stdoutBuf = "";
 
   constructor(private readonly opts: PythonBackendOptions) {
@@ -47,10 +48,15 @@ export class PythonBackend extends EventEmitter {
       return Promise.reject(new Error(`Cannot start from state: ${this.state}`));
     }
     this.state = "starting";
-    this.spawnAndWire();
-    await this.waitForHealthy();
-    this.state = "ready";
-    this.emit("ready");
+    try {
+      this.spawnAndWire();
+      await this.waitForHealthy();
+      this.state = "ready";
+      this.emit("ready");
+    } catch (err) {
+      await this.stop();
+      throw err;
+    }
   }
 
   async call(method: string, params: unknown): Promise<unknown> {
@@ -65,6 +71,7 @@ export class PythonBackend extends EventEmitter {
 
   async stop(): Promise<void> {
     this.state = "stopped";
+    this.generation++; // invalidate existing handlers
     if (this.proc) {
       this.proc.kill("SIGTERM");
       await this.waitProcExit(3000);
@@ -76,6 +83,8 @@ export class PythonBackend extends EventEmitter {
 
   private spawnAndWire(): void {
     this.stdoutBuf = "";
+    this.generation++;
+    const currentGen = this.generation;
     const proc = spawn(this.opts.pythonBin, ["-m", this.opts.moduleName], {
       cwd: this.opts.cwd,
       stdio: ["pipe", "pipe", "inherit"],
@@ -90,9 +99,16 @@ export class PythonBackend extends EventEmitter {
       warn: (msg) => console.warn(`[backend] ${msg}`),
     });
     proc.stdout.setEncoding("utf8");
-    proc.stdout.on("data", (chunk: string) => this.onStdoutChunk(chunk));
-    proc.once("exit", (code, signal) => this.onProcExit(code, signal));
+    proc.stdout.on("data", (chunk: string) => {
+      if (this.generation !== currentGen) return;
+      this.onStdoutChunk(chunk);
+    });
+    proc.once("exit", (code, signal) => {
+      if (this.generation !== currentGen) return;
+      this.onProcExit(code, signal);
+    });
     proc.on("error", (err) => {
+      if (this.generation !== currentGen) return;
       if (this.state === "stopped") return;
       const error = new BackendCrashedError(`python spawn error: ${err.message}`);
       this.client?.rejectAll(error);
