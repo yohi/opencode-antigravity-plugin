@@ -35,7 +35,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
   if (err instanceof BackendPermanentlyFailedError) {
     return {
       status: 503,
-      body: { error: { type: "backend_unavailable", message: err.message } },
+      body: { error: { type: "permanently_failed", message: err.message } },
     };
   }
   if (err instanceof BackendCrashedError) {

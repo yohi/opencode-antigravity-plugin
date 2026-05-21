@@ -13,7 +13,7 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new BackendCrashedError("python died"));
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toContain("python died");
+    expect(body.error.message).toBe("backend restarting, retry later: python died");
   });
 
   test("converts BackendTimeoutError to 504 timeout", () => {
@@ -25,7 +25,7 @@ describe("toOpenAIError", () => {
   test("converts BackendPermanentlyFailedError to 503 with permanently failed message", () => {
     const { status, body } = toOpenAIError(new BackendPermanentlyFailedError());
     expect(status).toBe(503);
-    expect(body.error.type).toBe("backend_unavailable");
+    expect(body.error.type).toBe("permanently_failed");
     expect(body.error.message).toMatch(/permanently failed/);
   });
 
@@ -39,5 +39,12 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new NotImplementedError("stream not supported"));
     expect(status).toBe(501);
     expect(body.error.type).toBe("not_implemented");
+  });
+
+  test("converts plain Error to 500 server_error", () => {
+    const { status, body } = toOpenAIError(new Error("unexpected failure"));
+    expect(status).toBe(500);
+    expect(body.error.type).toBe("server_error");
+    expect(body.error.message).toBe("unexpected failure");
   });
 });
