@@ -38,7 +38,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
     logger.error({ err }, "Backend permanently failed");
     return {
       status: 503,
-      body: { error: { type: "permanently_failed", message: "service temporarily unavailable" } },
+      body: { error: { type: "backend_unavailable", message: err.message } },
     };
   }
   if (err instanceof BackendCrashedError) {
@@ -48,7 +48,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
       body: {
         error: {
           type: "backend_unavailable",
-          message: "backend restarting, retry later",
+          message: `backend restarting, retry later: ${err.message}`,
         },
       },
     };
