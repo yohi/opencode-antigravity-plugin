@@ -10,11 +10,11 @@ import {
 } from "../../src/errors.js";
 
 describe("toOpenAIError", () => {
-  test("converts BackendCrashedError to OpenAI 503 backend_unavailable with sanitized message", () => {
+  test("converts BackendCrashedError to OpenAI 503 backend_unavailable with retryable message", () => {
     const { status, body } = toOpenAIError(new BackendCrashedError("python died"));
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toBe("An internal server error occurred");
+    expect(body.error.message).toBe("backend restarting, retry later: python died");
   });
 
   test("converts BackendTimeoutError to 504 timeout with sanitized message", () => {
@@ -24,11 +24,11 @@ describe("toOpenAIError", () => {
     expect(body.error.message).toBe("request timed out");
   });
 
-  test("converts BackendPermanentlyFailedError to 503 with sanitized message", () => {
+  test("converts BackendPermanentlyFailedError to 503 with original message", () => {
     const { status, body } = toOpenAIError(new BackendPermanentlyFailedError());
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toBe("An internal server error occurred");
+    expect(body.error.message).toBe("backend permanently failed");
   });
 
   test("converts ProtocolError to 400 invalid_request_error (keeps original message)", () => {

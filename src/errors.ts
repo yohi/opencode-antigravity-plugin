@@ -48,7 +48,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
     logger.error({ err }, "Backend permanently failed");
     return {
       status: 503,
-      body: { error: { type: "backend_unavailable", message: "An internal server error occurred" } },
+      body: { error: { type: "backend_unavailable", message: err.message } },
     };
   }
   if (err instanceof BackendCrashedError) {
@@ -58,7 +58,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
       body: {
         error: {
           type: "backend_unavailable",
-          message: "An internal server error occurred",
+          message: `backend restarting, retry later: ${err.message}`,
         },
       },
     };
