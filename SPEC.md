@@ -168,7 +168,8 @@ TS 親プロセスと Python サブプロセスは、標準入出力 (stdio) を
 ### 7.4 タイムアウト時の状態クリーンアップ順序
 タイムアウト（デフォルト60秒）発生時の Pending Map（id → Promise の対応表）クリーンアップは、以下の順序を厳密に順守して行われます。
 1. **Pending Map から該当 id のエントリを `delete` する**（`reject` よりも先に行う）。
-2. `BackendTimeoutError` で Promise を `reject` する。
+2. タイムアウトハンドルをクリアする（`clearTimeout`）。
+3. `BackendTimeoutError` で Promise を `reject` する。
 
 これにより、タイムアウト後に遅れて Python から届いた遅延応答が、既に reject 済みの Promise を二重解決することを防ぎ、メモリリークも同時に防止します。
 

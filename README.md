@@ -2,7 +2,7 @@
 
 OpenAI 互換 HTTP を OpenCode から受け、Python の Antigravity ワーカへ stdio JSON-RPC で中継するハイブリッドプラグインです。
 
-詳しいアーキテクチャや制御フロー、エラーハンドリングなどの設計については、[SPEC.md](file:///home/y_ohi/program/opencode-antigravity-plugin/SPEC.md) を参照してください。
+詳しいアーキテクチャや制御フロー、エラーハンドリングなどの設計については、[SPEC.md](SPEC.md) を参照してください。
 
 ---
 
