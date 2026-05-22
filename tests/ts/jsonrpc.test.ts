@@ -150,4 +150,33 @@ describe("JsonRpcClient", () => {
 
     expect(warnLogs.some(m => m.includes("non-response message shape"))).toBe(true);
   });
+
+  test("handles malformed error objects in response", async () => {
+    const sent: string[] = [];
+    const client = new JsonRpcClient({ write: (line) => sent.push(line) });
+    
+    // Case 1: error is not an object
+    const promise1 = client.call("test1", {}, { timeoutMs: 1000 });
+    const id1 = JSON.parse(sent[0]!).id;
+    client.handleInboundLine(JSON.stringify({
+      jsonrpc: "2.0", id: id1, error: "not an object"
+    }));
+    await expect(promise1).rejects.toThrow(/malformed error from backend/);
+
+    // Case 2: error.code is not a number
+    const promise2 = client.call("test2", {}, { timeoutMs: 1000 });
+    const id2 = JSON.parse(sent[1]!).id;
+    client.handleInboundLine(JSON.stringify({
+      jsonrpc: "2.0", id: id2, error: { code: "not a number", message: "bad code" }
+    }));
+    await expect(promise2).rejects.toThrow(/\[-32000\] bad code/);
+
+    // Case 3: error.message is not a string (converts to string)
+    const promise3 = client.call("test3", {}, { timeoutMs: 1000 });
+    const id3 = JSON.parse(sent[2]!).id;
+    client.handleInboundLine(JSON.stringify({
+      jsonrpc: "2.0", id: id3, error: { code: -32603, message: { complex: "object" } }
+    }));
+    await expect(promise3).rejects.toThrow(/\[-32603\] \[object Object\]/);
+  });
 });

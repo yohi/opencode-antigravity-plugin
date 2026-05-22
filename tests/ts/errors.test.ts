@@ -3,6 +3,7 @@ import {
   BackendCrashedError,
   BackendTimeoutError,
   BackendPermanentlyFailedError,
+  BackendResponseError,
   ProtocolError,
   NotImplementedError,
   toOpenAIError,
@@ -13,7 +14,7 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new BackendCrashedError("python died"));
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toBe("backend restarting, retry later");
+    expect(body.error.message).toBe("An internal server error occurred");
   });
 
   test("converts BackendTimeoutError to 504 timeout with sanitized message", () => {
@@ -26,8 +27,8 @@ describe("toOpenAIError", () => {
   test("converts BackendPermanentlyFailedError to 503 with sanitized message", () => {
     const { status, body } = toOpenAIError(new BackendPermanentlyFailedError());
     expect(status).toBe(503);
-    expect(body.error.type).toBe("permanently_failed");
-    expect(body.error.message).toBe("service temporarily unavailable");
+    expect(body.error.type).toBe("backend_unavailable");
+    expect(body.error.message).toBe("An internal server error occurred");
   });
 
   test("converts ProtocolError to 400 invalid_request_error (keeps original message)", () => {
@@ -42,6 +43,20 @@ describe("toOpenAIError", () => {
     expect(status).toBe(501);
     expect(body.error.type).toBe("not_implemented");
     expect(body.error.message).toBe("feature not implemented");
+  });
+
+  test("converts BackendResponseError(-32602) to 400 invalid_request_error with rawMessage", () => {
+    const { status, body } = toOpenAIError(new BackendResponseError(-32602, "field 'model' is required"));
+    expect(status).toBe(400);
+    expect(body.error.type).toBe("invalid_request_error");
+    expect(body.error.message).toBe("field 'model' is required");
+  });
+
+  test("converts BackendResponseError(other code) to 500 server_error with rawMessage", () => {
+    const { status, body } = toOpenAIError(new BackendResponseError(-32000, "something went wrong"));
+    expect(status).toBe(500);
+    expect(body.error.type).toBe("server_error");
+    expect(body.error.message).toBe("An internal server error occurred");
   });
 
   test("converts plain Error to 500 server_error with sanitized message", () => {

@@ -21,6 +21,16 @@ export class BackendPermanentlyFailedError extends Error {
   }
 }
 
+export class BackendResponseError extends Error {
+  readonly name = "BackendResponseError";
+  constructor(
+    public readonly code: number,
+    public readonly rawMessage: string
+  ) {
+    super(`[${code}] ${rawMessage}`);
+  }
+}
+
 export class ProtocolError extends Error {
   readonly name = "ProtocolError";
 }
@@ -38,7 +48,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
     logger.error({ err }, "Backend permanently failed");
     return {
       status: 503,
-      body: { error: { type: "permanently_failed", message: "service temporarily unavailable" } },
+      body: { error: { type: "backend_unavailable", message: "An internal server error occurred" } },
     };
   }
   if (err instanceof BackendCrashedError) {
@@ -48,7 +58,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
       body: {
         error: {
           type: "backend_unavailable",
-          message: "backend restarting, retry later",
+          message: "An internal server error occurred",
         },
       },
     };
@@ -56,6 +66,20 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
   if (err instanceof BackendTimeoutError) {
     logger.error({ err }, "Backend timeout");
     return { status: 504, body: { error: { type: "timeout", message: "request timed out" } } };
+  }
+  if (err instanceof BackendResponseError) {
+    if (err.code === -32602) {
+      logger.warn({ err }, "Backend invalid params");
+      return {
+        status: 400,
+        body: { error: { type: "invalid_request_error", message: err.rawMessage } },
+      };
+    }
+    logger.error({ err }, "Backend internal error");
+    return {
+      status: 500,
+      body: { error: { type: "server_error", message: "An internal server error occurred" } },
+    };
   }
   if (err instanceof NotImplementedError) {
     logger.warn({ err }, "Not implemented");
