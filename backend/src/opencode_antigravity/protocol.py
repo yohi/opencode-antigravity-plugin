@@ -43,7 +43,7 @@ class JsonRpcInvalidRequestError(ValueError):
 
 def parse_request(line: str) -> JsonRpcRequest:
     """Parse one NDJSON line into a JsonRpcRequest. Raises specific errors on invalidity."""
-    if len(line.encode("utf-8")) > 1024 * 1024:
+    if len(line) > 1024 * 1024 or len(line.encode("utf-8")) > 1024 * 1024:
         raise JsonRpcInvalidRequestError("inbound message exceeds 1 MB")
 
     try:
