@@ -14,7 +14,7 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new BackendCrashedError("python died"));
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toBe("backend restarting, retry later: python died");
+    expect(body.error.message).toBe("An internal server error occurred");
   });
 
   test("converts BackendTimeoutError to 504 timeout with sanitized message", () => {
@@ -28,7 +28,7 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new BackendPermanentlyFailedError());
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toBe("backend permanently failed");
+    expect(body.error.message).toBe("An internal server error occurred");
   });
 
   test("converts ProtocolError to 400 invalid_request_error (keeps original message)", () => {
@@ -56,7 +56,7 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new BackendResponseError(-32000, "something went wrong"));
     expect(status).toBe(500);
     expect(body.error.type).toBe("server_error");
-    expect(body.error.message).toBe("something went wrong");
+    expect(body.error.message).toBe("An internal server error occurred");
   });
 
   test("converts plain Error to 500 server_error with sanitized message", () => {

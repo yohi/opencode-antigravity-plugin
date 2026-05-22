@@ -116,7 +116,21 @@ export class JsonRpcClient {
     this.pending.delete(msg.id!);
     clearTimeout(entry.timeoutHandle);
     if ("error" in msg) {
-      entry.reject(new BackendResponseError(msg.error.code, msg.error.message));
+      const error = msg.error;
+      let code = -32000; // General non-standard backend error fallback
+      let message = "malformed error from backend";
+
+      if (error && typeof error === "object") {
+        if (typeof error.code === "number") {
+          code = error.code;
+        }
+        if (typeof error.message === "string") {
+          message = error.message;
+        } else if (error.message !== undefined) {
+          message = String(error.message);
+        }
+      }
+      entry.reject(new BackendResponseError(code, message));
     } else {
       entry.resolve(msg.result);
     }
