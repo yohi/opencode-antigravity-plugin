@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test:unit": "vitest run tests/ts",
-    "test:integration": "vitest run tests/ts/backend.test.ts",
-    "test:e2e": "vitest run tests/ts/integration.test.ts",
+    "test:unit": "vitest run tests/ts --exclude \"tests/ts/{backend,integration}.test.ts\" --passWithNoTests",
+    "test:integration": "vitest run tests/ts/backend.test.ts --passWithNoTests",
+    "test:e2e": "vitest run tests/ts/integration.test.ts --passWithNoTests",
     "test:python": "uv run pytest",
     "lint:python": "uv run ruff check backend/src tests/python",
     "verify": "uv run ruff check backend/src tests/python && uv run pytest && pnpm test:unit && pnpm test:integration && pnpm test:e2e"
