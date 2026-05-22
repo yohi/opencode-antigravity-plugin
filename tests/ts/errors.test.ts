@@ -14,17 +14,17 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new BackendCrashedError("python died"));
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
-    expect(body.error.message).toBe("backend restarting, retry later: python died");
+    expect(body.error.message).toBe("backend restarting, retry later");
   });
 
   test("converts BackendTimeoutError to 504 timeout with sanitized message", () => {
     const { status, body } = toOpenAIError(new BackendTimeoutError("60s exceeded"));
     expect(status).toBe(504);
     expect(body.error.type).toBe("timeout");
-    expect(body.error.message).toBe("request timed out");
+    expect(body.error.message).toBe("60s exceeded");
   });
 
-  test("converts BackendPermanentlyFailedError to 503 with original message", () => {
+  test("converts BackendPermanentlyFailedError to 503 with sanitized message", () => {
     const { status, body } = toOpenAIError(new BackendPermanentlyFailedError());
     expect(status).toBe(503);
     expect(body.error.type).toBe("backend_unavailable");
@@ -42,7 +42,7 @@ describe("toOpenAIError", () => {
     const { status, body } = toOpenAIError(new NotImplementedError("stream not supported"));
     expect(status).toBe(501);
     expect(body.error.type).toBe("not_implemented");
-    expect(body.error.message).toBe("feature not implemented");
+    expect(body.error.message).toBe("stream not supported");
   });
 
   test("converts BackendResponseError(-32602) to 400 invalid_request_error with rawMessage", () => {

@@ -138,7 +138,8 @@ opencode-antigravity-plugin/
 //        "index":0,
 //        "message":{"role":"assistant","content":"[echo] hi"},
 //        "finish_reason":"stop"
-//      }]
+//      }],
+//      "usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}
 //    }}
 ```
 
@@ -249,21 +250,25 @@ opencode-antigravity-plugin/
 |---|---|---|---|
 | OpenCode の不正リクエスト（JSON パース失敗） | `ProtocolError` | 400 | `invalid_request_error` |
 | `stream: true`（MVP 未対応） | `NotImplementedError` | 501 | `not_implemented` |
-| Python から `-32602 Invalid params` | 伝搬 | 400 | `invalid_request_error` |
-| Python から `-32603 Internal error` | 伝搬 | 500 | `server_error` |
+| Python から `-32602 Invalid params` | `BackendResponseError` | 400 | `invalid_request_error` |
+| Python から `-32603 Internal error` | `BackendResponseError` | 500 | `server_error` |
 | `chat.completions` 60 秒超 | `BackendTimeoutError` | 504 | `timeout` |
 | Python プロセス突然死（処理中） | `BackendCrashedError` | 503 | `backend_unavailable` |
 | 3 回連続再起動失敗 | `BackendPermanentlyFailedError` | 503 | `backend_unavailable` |
+
+`BackendResponseError` は JSON-RPC エラーコード (`code`) と元のメッセージ (`rawMessage`) を保持し、`toOpenAIError()` 内で `-32602` を 400、それ以外を 500 にマッピングする。
 
 ### 8.2 JSON-RPC エラーコード
 
 標準コードのみ使用（MVP では独自コードを増やさない）:
 
-- `-32700` Parse error
-- `-32600` Invalid Request
+- `-32700` Parse error — Python 側は `JsonRpcParseError` 例外で発火
+- `-32600` Invalid Request — Python 側は `JsonRpcInvalidRequestError` 例外で発火（JSON パースは成功したがリクエスト形式が不正な場合）
 - `-32601` Method not found
 - `-32602` Invalid params（pydantic 検証失敗）
 - `-32603` Internal error（ハンドラ内例外）
+
+Python 側では `-32700` と `-32600` を区別するため、`ValueError` のサブクラスとして `JsonRpcParseError` と `JsonRpcInvalidRequestError` を定義している。
 
 ### 8.3 ログ方針
 

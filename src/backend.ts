@@ -8,6 +8,7 @@ import {
   BackendCrashedError,
   BackendPermanentlyFailedError,
 } from "./errors.js";
+import { logger } from "./logger.js";
 
 export type BackendState = "starting" | "ready" | "restarting" | "permanently_failed" | "stopped";
 
@@ -138,7 +139,7 @@ export class PythonBackend extends EventEmitter {
     this.proc = proc;
     this.client = new JsonRpcClient({
       write: (line) => proc.stdin.write(line),
-      warn: (msg) => console.warn(`[backend] ${msg}`),
+      warn: (msg) => logger.warn({ source: "backend" }, msg),
     });
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk: string) => {
