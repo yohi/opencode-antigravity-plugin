@@ -9,7 +9,7 @@ let baseUrl: string;
 
 beforeAll(async () => {
   backend = new PythonBackend({
-    pythonBin: "python",
+    pythonBin: process.env.PYTHON_BIN ?? "python",
     moduleName: "opencode_antigravity",
     cwd: process.cwd(),
     healthTimeoutMs: 5000,
@@ -23,12 +23,18 @@ beforeAll(async () => {
   const addr = server.address();
   if (typeof addr === "object" && addr !== null) {
     baseUrl = `http://127.0.0.1:${addr.port}`;
+  } else {
+    throw new Error(`Failed to determine server address: ${JSON.stringify(addr)}`);
   }
 });
 
 afterAll(async () => {
-  await new Promise<void>((r) => server.close(() => r()));
-  await backend.stop();
+  if (server) {
+    await new Promise<void>((r) => server.close(() => r()));
+  }
+  if (backend) {
+    await backend.stop();
+  }
 });
 
 describe("E2E", () => {
@@ -47,7 +53,8 @@ describe("E2E", () => {
       model: string;
     };
     expect(body.model).toBe("opencode-antigravity-echo");
-    expect(body.choices[0].message.content).toBe("[echo] hi");
+    expect(body.choices.length).toBeGreaterThan(0);
+    expect(body.choices[0]!.message.content).toBe("[echo] hi");
   });
 
   test("GET /healthz returns ok with restart count (#20)", async () => {

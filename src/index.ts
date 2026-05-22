@@ -14,19 +14,38 @@ async function main(): Promise<void> {
   await backend.start();
 
   const server = createServer(backend);
-  const port = Number(process.env.PORT ?? 11435);
+
+  const rawPort = process.env.PORT ?? "11435";
+  const port = parseInt(rawPort, 10);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error(JSON.stringify({ level: "error", msg: "invalid port", port: rawPort }));
+    process.exit(1);
+  }
+
+  server.on("error", async (err) => {
+    console.error(JSON.stringify({ level: "error", msg: "server error", err: String(err) }));
+    await backend.stop();
+    process.exit(1);
+  });
+
   server.listen(port, "127.0.0.1", () => {
     console.log(JSON.stringify({ level: "info", msg: "listening", port }));
   });
 
-  const shutdown = async (sig: NodeJS.Signals) => {
+  let shuttingDown = false;
+  const shutdown = async (sig: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log(JSON.stringify({ level: "info", msg: "shutdown", signal: sig }));
     await new Promise<void>((r) => server.close(() => r()));
     await backend.stop();
     process.exit(0);
   };
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
-  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
+  process.once("SIGINT", () => void shutdown("SIGINT"));
 }
 
-void main();
+main().catch((err) => {
+  console.error(JSON.stringify({ level: "error", msg: "startup failed", err: String(err) }));
+  process.exit(1);
+});
