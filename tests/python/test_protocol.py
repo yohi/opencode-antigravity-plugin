@@ -87,3 +87,29 @@ def test_format_error_without_data() -> None:
     err = format_error(JsonRpcError(id=1, code=-32602, message="Invalid params"))
     assert err == '{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}}'
 
+def test_parse_size_limits() -> None:
+    # 1MB exactly
+    base = '{"jsonrpc":"2.0","id":1,"method":"echo","params":{"text":""}}'
+    base_len = len(base)
+    padding_exactly_1mb = "a" * ((1024 * 1024) - base_len)
+    
+    payload_1mb = (
+        '{"jsonrpc":"2.0","id":1,"method":"echo",'
+        f'"params":{{"text":"{padding_exactly_1mb}"}}}}'
+    )
+    
+    assert len(payload_1mb.encode("utf-8")) == 1024 * 1024
+    # Should pass without error
+    req = parse_request(payload_1mb)
+    assert req.method == "echo"
+
+    # 1MB + 1 byte
+    padding_too_large = "a" * ((1024 * 1024) - base_len + 1)
+    payload_too_large = (
+        '{"jsonrpc":"2.0","id":1,"method":"echo",'
+        f'"params":{{"text":"{padding_too_large}"}}}}'
+    )
+    
+    assert len(payload_too_large.encode("utf-8")) == 1024 * 1024 + 1
+    with pytest.raises(JsonRpcInvalidRequestError, match="exceeds 1 MB"):
+        parse_request(payload_too_large)
