@@ -120,6 +120,7 @@ describe("PythonBackend failure semantics", () => {
   });
 
   test("request arriving during restart wait returns 503 immediately without queueing (#18)", async () => {
+    const backoffMs = [1500, 1500, 1500];
     const back = new PythonBackend({
       pythonBin: getPythonBin(),
       moduleName: "opencode_antigravity",
@@ -127,7 +128,7 @@ describe("PythonBackend failure semantics", () => {
       healthTimeoutMs: 5000,
       callTimeoutMs: 5000,
       maxRestarts: 3,
-      backoffMs: [1500, 1500, 1500],
+      backoffMs,
     });
     try {
       await back.start();
@@ -138,7 +139,7 @@ describe("PythonBackend failure semantics", () => {
       const t0 = Date.now();
       await expect(back.call("echo", { text: "x" })).rejects.toBeInstanceOf(BackendCrashedError);
       const elapsed = Date.now() - t0;
-      expect(elapsed).toBeLessThan(200); // キューイングしていないことを ms で検証
+      expect(elapsed).toBeLessThan(backoffMs[0] / 2); // キューイングしていないことをバックオフ時間との相対値で検証
       // restart 完了後の通常応答も確認
       await waitForState(back, "ready", 10000);
       const res = (await back.call("echo", { text: "after" })) as { text: string };

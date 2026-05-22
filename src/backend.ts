@@ -52,18 +52,23 @@ export class PythonBackend extends EventEmitter {
       return Promise.reject(new Error(`Cannot start from state: ${this.state}`));
     }
     this.state = "starting";
+    this.spawnAndWire();
+    const currentGen = this.generation;
+    const currentProc = this.proc;
+    const currentClient = this.client;
     try {
-      this.spawnAndWire();
       await this.waitForHealthy();
+      if (this.generation !== currentGen) return;
       this.state = "ready";
       this.emit("ready");
     } catch (err) {
+      if (this.generation !== currentGen) throw err;
       // 初回起動失敗もクラッシュとして数える
       const crash = this.toCrashedError(err);
-      this.client?.rejectAll(crash);
-      this.proc?.kill("SIGKILL");
-      this.proc = null;
-      this.client = null;
+      currentClient?.rejectAll(crash);
+      currentProc?.kill("SIGKILL");
+      if (this.proc === currentProc) this.proc = null;
+      if (this.client === currentClient) this.client = null;
       // permanently_failed に到達するまで attemptRestart に委ねる
       if (this.state !== "restarting" && this.state !== "permanently_failed") {
         this.state = "restarting"; // Block onProcExit/onError from calling attemptRestart again
@@ -216,18 +221,27 @@ export class PythonBackend extends EventEmitter {
       return;
     }
 
+    let currentGen = this.generation;
+    let currentProc = this.proc;
+    let currentClient = this.client;
+
     try {
       this.spawnAndWire();
+      currentGen = this.generation;
+      currentProc = this.proc;
+      currentClient = this.client;
       await this.waitForHealthy();
+      if (this.generation !== currentGen) return;
       this.state = "ready";
       this.isRestarting = false;
       this.emit("ready");
     } catch (err) {
+      if (this.generation !== currentGen) return;
       const crash = this.toCrashedError(err);
-      this.client?.rejectAll(crash);
-      this.proc?.kill("SIGKILL");
-      this.proc = null;
-      this.client = null;
+      currentClient?.rejectAll(crash);
+      currentProc?.kill("SIGKILL");
+      if (this.proc === currentProc) this.proc = null;
+      if (this.client === currentClient) this.client = null;
       this.isRestarting = false;
       void this.attemptRestart();
     }
