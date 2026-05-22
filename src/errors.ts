@@ -25,9 +25,9 @@ export class BackendResponseError extends Error {
   readonly name = "BackendResponseError";
   constructor(
     public readonly code: number,
-    message: string
+    public readonly rawMessage: string
   ) {
-    super(`[${code}] ${message}`);
+    super(`[${code}] ${rawMessage}`);
   }
 }
 
@@ -72,13 +72,13 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
       logger.warn({ err }, "Backend invalid params");
       return {
         status: 400,
-        body: { error: { type: "invalid_request_error", message: err.message } },
+        body: { error: { type: "invalid_request_error", message: err.rawMessage } },
       };
     }
     logger.error({ err }, "Backend internal error");
     return {
       status: 500,
-      body: { error: { type: "server_error", message: err.message } },
+      body: { error: { type: "server_error", message: err.rawMessage } },
     };
   }
   if (err instanceof NotImplementedError) {

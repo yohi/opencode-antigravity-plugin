@@ -3,6 +3,7 @@ import {
   BackendCrashedError,
   BackendTimeoutError,
   BackendPermanentlyFailedError,
+  BackendResponseError,
   ProtocolError,
   NotImplementedError,
   toOpenAIError,
@@ -42,6 +43,20 @@ describe("toOpenAIError", () => {
     expect(status).toBe(501);
     expect(body.error.type).toBe("not_implemented");
     expect(body.error.message).toBe("feature not implemented");
+  });
+
+  test("converts BackendResponseError(-32602) to 400 invalid_request_error with rawMessage", () => {
+    const { status, body } = toOpenAIError(new BackendResponseError(-32602, "field 'model' is required"));
+    expect(status).toBe(400);
+    expect(body.error.type).toBe("invalid_request_error");
+    expect(body.error.message).toBe("field 'model' is required");
+  });
+
+  test("converts BackendResponseError(other code) to 500 server_error with rawMessage", () => {
+    const { status, body } = toOpenAIError(new BackendResponseError(-32000, "something went wrong"));
+    expect(status).toBe(500);
+    expect(body.error.type).toBe("server_error");
+    expect(body.error.message).toBe("something went wrong");
   });
 
   test("converts plain Error to 500 server_error with sanitized message", () => {
