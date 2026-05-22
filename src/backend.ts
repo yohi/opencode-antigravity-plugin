@@ -70,7 +70,8 @@ export class PythonBackend extends EventEmitter {
       if (this.proc === currentProc) this.proc = null;
       if (this.client === currentClient) this.client = null;
       // permanently_failed に到達するまで attemptRestart に委ねる
-      if (this.state !== "restarting" && this.state !== "permanently_failed") {
+      const state = this.state as BackendState;
+      if (state !== "restarting" && state !== "permanently_failed") {
         this.state = "restarting"; // Block onProcExit/onError from calling attemptRestart again
         void this.attemptRestart();
       }
@@ -219,7 +220,8 @@ export class PythonBackend extends EventEmitter {
       this.restartAbortController = null;
     }
 
-    if (this.state === "stopped" || this.state === "permanently_failed") {
+    const state = this.state as BackendState;
+    if (state === "stopped" || state === "permanently_failed") {
       this.isRestarting = false;
       return;
     }
