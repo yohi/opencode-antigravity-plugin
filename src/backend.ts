@@ -1,0 +1,268 @@
+import { EventEmitter } from "node:events";
+import { spawn, type ChildProcessByStdio, type ChildProcess } from "node:child_process";
+import type { Readable, Writable } from "node:stream";
+import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+import { JsonRpcClient } from "./jsonrpc.js";
+import {
+  BackendCrashedError,
+  BackendPermanentlyFailedError,
+} from "./errors.js";
+
+export type BackendState = "starting" | "ready" | "restarting" | "permanently_failed" | "stopped";
+
+export interface PythonBackendOptions {
+  pythonBin: string;
+  moduleName: string;
+  cwd: string;
+  healthTimeoutMs: number;
+  callTimeoutMs: number;
+  maxRestarts: number;
+  backoffMs: number[]; // length === maxRestarts
+}
+
+export class PythonBackend extends EventEmitter {
+  private proc: ChildProcessByStdio<Writable, Readable, null> | null = null;
+  private client: JsonRpcClient | null = null;
+  private state: BackendState = "stopped";
+  private isRestarting = false;
+  private _restartCount = 0;
+  private generation = 0;
+  private stdoutBuf = "";
+  private restartAbortController: AbortController | null = null;
+
+  constructor(private readonly opts: PythonBackendOptions) {
+    super();
+  }
+
+  get currentState(): BackendState {
+    return this.state;
+  }
+
+  get restartCount(): number {
+    return this._restartCount;
+  }
+
+  get pid(): number {
+    return this.proc?.pid ?? -1;
+  }
+
+  async start(): Promise<void> {
+    if (this.state !== "stopped") {
+      return Promise.reject(new Error(`Cannot start from state: ${this.state}`));
+    }
+    this.state = "starting";
+    this.spawnAndWire();
+    const currentGen = this.generation;
+    const currentProc = this.proc;
+    const currentClient = this.client;
+    try {
+      await this.waitForHealthy();
+      if (this.generation !== currentGen) return;
+      this.state = "ready";
+      this.emit("ready");
+    } catch (err) {
+      if (this.generation !== currentGen) throw err;
+      // 初回起動失敗もクラッシュとして数える
+      const crash = this.toCrashedError(err);
+      currentClient?.rejectAll(crash);
+      currentProc?.kill("SIGKILL");
+      if (this.proc === currentProc) this.proc = null;
+      if (this.client === currentClient) this.client = null;
+      // permanently_failed に到達するまで attemptRestart に委ねる
+      if (this.state !== "restarting" && this.state !== "permanently_failed") {
+        this.state = "restarting"; // Block onProcExit/onError from calling attemptRestart again
+        void this.attemptRestart();
+      }
+      throw crash;
+    }
+  }
+
+  async call(method: string, params: unknown): Promise<unknown> {
+    if (this.state === "permanently_failed") {
+      throw new BackendPermanentlyFailedError();
+    }
+    if (this.state === "restarting" || this.state === "starting") {
+      // design §7.3: キューイングせず即座に reject (HTTP 層が 503 へ変換)
+      throw new BackendCrashedError(`backend ${this.state}, retry later`);
+    }
+    if (this.state !== "ready" || this.client === null) {
+      throw new BackendCrashedError(`backend not ready (state=${this.state})`);
+    }
+    return this.client.call(method, params, { timeoutMs: this.opts.callTimeoutMs });
+  }
+
+  async stop(): Promise<void> {
+    const targetProc = this.proc;
+    const targetClient = this.client;
+    this.state = "stopped";
+    this.generation++; // invalidate existing handlers
+
+    if (targetClient) {
+      targetClient.rejectAll(new BackendCrashedError("backend stopped"));
+    }
+
+    if (this.restartAbortController) {
+      this.restartAbortController.abort();
+      this.restartAbortController = null;
+    }
+
+    if (targetProc) {
+      targetProc.kill("SIGTERM");
+      await this.waitProcExit(targetProc, 3000);
+      if (targetProc.exitCode === null && targetProc.signalCode === null) {
+        targetProc.kill("SIGKILL");
+        await this.waitProcExit(targetProc, 3000);
+      }
+    }
+
+    if (this.proc === targetProc) this.proc = null;
+    if (this.client === targetClient) this.client = null;
+    this.isRestarting = false;
+    this._restartCount = 0;
+  }
+
+  private spawnAndWire(): void {
+    this.stdoutBuf = "";
+    this.generation++;
+    const currentGen = this.generation;
+    const proc = spawn(this.opts.pythonBin, ["-m", this.opts.moduleName], {
+      cwd: this.opts.cwd,
+      stdio: ["pipe", "pipe", "inherit"],
+      env: {
+        ...process.env,
+        PYTHONPATH: `${process.env.PYTHONPATH ?? ""}${process.env.PYTHONPATH ? path.delimiter : ""}${this.opts.cwd}/backend/src`,
+      },
+    }) as ChildProcessByStdio<Writable, Readable, null>;
+    this.proc = proc;
+    this.client = new JsonRpcClient({
+      write: (line) => proc.stdin.write(line),
+      warn: (msg) => console.warn(`[backend] ${msg}`),
+    });
+    proc.stdout.setEncoding("utf8");
+    proc.stdout.on("data", (chunk: string) => {
+      if (this.generation !== currentGen) return;
+      this.onStdoutChunk(chunk);
+    });
+    proc.once("exit", (code, signal) => {
+      if (this.generation !== currentGen) return;
+      this.onProcExit(code, signal);
+    });
+    proc.on("error", (err) => {
+      if (this.generation !== currentGen) return;
+      if (this.state === "stopped") return;
+      const error = new BackendCrashedError(`python spawn error: ${err.message}`);
+      this.client?.rejectAll(error);
+      this.proc = null;
+      this.client = null;
+      if (this.state === "ready" || this.state === "starting") {
+        this.state = "restarting";
+        void this.attemptRestart();
+      }
+    });
+  }
+
+  private onStdoutChunk(chunk: string): void {
+    this.stdoutBuf += chunk;
+    let idx = this.stdoutBuf.indexOf("\n");
+    while (idx >= 0) {
+      const line = this.stdoutBuf.slice(0, idx);
+      this.stdoutBuf = this.stdoutBuf.slice(idx + 1);
+      if (line.trim().length === 0) continue;
+      this.client?.handleInboundLine(line);
+      idx = this.stdoutBuf.indexOf("\n");
+    }
+  }
+
+  private async waitForHealthy(): Promise<void> {
+    if (this.client === null) throw new BackendCrashedError("client missing during health");
+    await this.client.call("health", {}, { timeoutMs: this.opts.healthTimeoutMs });
+  }
+
+  private onProcExit(code: number | null, signal: NodeJS.Signals | null): void {
+    if (this.state === "stopped") return; // intentional stop
+    const err = new BackendCrashedError(
+      `python exited code=${code} signal=${signal}`,
+    );
+    this.client?.rejectAll(err);
+    this.proc = null;
+    this.client = null;
+    if (this.state === "ready" || this.state === "starting") {
+      this.state = "restarting";
+      void this.attemptRestart();
+    }
+  }
+
+  private async attemptRestart(): Promise<void> {
+    if (this.isRestarting || this.state === "stopped" || this.state === "permanently_failed") {
+      return;
+    }
+    this.isRestarting = true;
+    // state is already set to "restarting" by the caller
+    this.emit("restarting");
+    if (this._restartCount >= this.opts.maxRestarts) {
+      this.state = "permanently_failed";
+      this.isRestarting = false;
+      this.emit("permanently_failed");
+      return;
+    }
+    const wait = this.opts.backoffMs[this._restartCount] ?? 4000;
+    this._restartCount += 1;
+
+    try {
+      this.restartAbortController = new AbortController();
+      await sleep(wait, undefined, { signal: this.restartAbortController.signal });
+    } catch {
+      this.isRestarting = false;
+      return;
+    } finally {
+      this.restartAbortController = null;
+    }
+
+    if (this.state === "stopped" || this.state === "permanently_failed") {
+      this.isRestarting = false;
+      return;
+    }
+
+    let currentGen = this.generation;
+    let currentProc = this.proc;
+    let currentClient = this.client;
+
+    try {
+      this.spawnAndWire();
+      currentGen = this.generation;
+      currentProc = this.proc;
+      currentClient = this.client;
+      await this.waitForHealthy();
+      if (this.generation !== currentGen) return;
+      this.state = "ready";
+      this.isRestarting = false;
+      this.emit("ready");
+    } catch (err) {
+      if (this.generation !== currentGen) return;
+      const crash = this.toCrashedError(err);
+      currentClient?.rejectAll(crash);
+      currentProc?.kill("SIGKILL");
+      if (this.proc === currentProc) this.proc = null;
+      if (this.client === currentClient) this.client = null;
+      this.isRestarting = false;
+      void this.attemptRestart();
+    }
+  }
+
+  private toCrashedError(err: unknown): BackendCrashedError {
+    if (err instanceof BackendCrashedError) return err;
+    const message = err instanceof Error ? err.message : String(err);
+    return new BackendCrashedError(message);
+  }
+
+  private waitProcExit(proc: ChildProcess, timeoutMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      const t = setTimeout(resolve, timeoutMs);
+      proc.once("exit", () => {
+        clearTimeout(t);
+        resolve();
+      });
+    });
+  }
+}
