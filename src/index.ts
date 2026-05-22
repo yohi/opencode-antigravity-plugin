@@ -2,6 +2,13 @@ import { PythonBackend } from "./backend.js";
 import { createServer } from "./server.js";
 
 async function main(): Promise<void> {
+  const rawPort = process.env.PORT ?? "11435";
+  const port = parseInt(rawPort, 10);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error(JSON.stringify({ level: "error", msg: "invalid port", port: rawPort }));
+    process.exit(1);
+  }
+
   const backend = new PythonBackend({
     pythonBin: process.env.PYTHON_BIN ?? "python",
     moduleName: "opencode_antigravity",
@@ -14,13 +21,6 @@ async function main(): Promise<void> {
   await backend.start();
 
   const server = createServer(backend);
-
-  const rawPort = process.env.PORT ?? "11435";
-  const port = parseInt(rawPort, 10);
-  if (isNaN(port) || port < 1 || port > 65535) {
-    console.error(JSON.stringify({ level: "error", msg: "invalid port", port: rawPort }));
-    process.exit(1);
-  }
 
   server.on("error", async (err) => {
     console.error(JSON.stringify({ level: "error", msg: "server error", err: String(err) }));

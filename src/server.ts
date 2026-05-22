@@ -14,6 +14,13 @@ export function createServer(backend: PythonBackend): http.Server {
     const urlPath = req.url?.split("?")[0] ?? "";
 
     if (req.method === "GET" && urlPath === "/healthz") {
+      const state = backend.currentState;
+      if (state !== "ready") {
+        return sendJson(res, 503, {
+          status: state,
+          python_restarts: backend.restartCount,
+        });
+      }
       return sendJson(res, 200, {
         status: "ok",
         python_restarts: backend.restartCount,
