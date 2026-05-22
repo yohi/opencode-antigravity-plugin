@@ -110,7 +110,10 @@ export class PythonBackend extends EventEmitter {
     if (targetProc) {
       targetProc.kill("SIGTERM");
       await this.waitProcExit(targetProc, 3000);
-      if (targetProc.exitCode === null) targetProc.kill("SIGKILL");
+      if (targetProc.exitCode === null && targetProc.signalCode === null) {
+        targetProc.kill("SIGKILL");
+        await this.waitProcExit(targetProc, 3000);
+      }
     }
 
     if (this.proc === targetProc) this.proc = null;
