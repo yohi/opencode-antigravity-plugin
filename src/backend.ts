@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { spawn, type ChildProcessByStdio } from "node:child_process";
+import { spawn, type ChildProcessByStdio, type ChildProcess } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -66,6 +66,7 @@ export class PythonBackend extends EventEmitter {
       this.client = null;
       // permanently_failed に到達するまで attemptRestart に委ねる
       if (this.state !== "restarting" && this.state !== "permanently_failed") {
+        this.state = "restarting"; // Block onProcExit/onError from calling attemptRestart again
         void this.attemptRestart();
       }
       throw crash;
@@ -87,19 +88,28 @@ export class PythonBackend extends EventEmitter {
   }
 
   async stop(): Promise<void> {
+    const targetProc = this.proc;
+    const targetClient = this.client;
     this.state = "stopped";
     this.generation++; // invalidate existing handlers
+
+    if (targetClient) {
+      targetClient.rejectAll(new BackendCrashedError("backend stopped"));
+    }
+
     if (this.restartAbortController) {
       this.restartAbortController.abort();
       this.restartAbortController = null;
     }
-    if (this.proc) {
-      this.proc.kill("SIGTERM");
-      await this.waitProcExit(3000);
-      if (this.proc && this.proc.exitCode === null) this.proc.kill("SIGKILL");
+
+    if (targetProc) {
+      targetProc.kill("SIGTERM");
+      await this.waitProcExit(targetProc, 3000);
+      if (targetProc.exitCode === null) targetProc.kill("SIGKILL");
     }
-    this.proc = null;
-    this.client = null;
+
+    if (this.proc === targetProc) this.proc = null;
+    if (this.client === targetClient) this.client = null;
     this.isRestarting = false;
     this._restartCount = 0;
   }
@@ -137,7 +147,8 @@ export class PythonBackend extends EventEmitter {
       this.client?.rejectAll(error);
       this.proc = null;
       this.client = null;
-      if (this.state === "ready") {
+      if (this.state === "ready" || this.state === "starting") {
+        this.state = "restarting";
         void this.attemptRestart();
       }
     });
@@ -168,7 +179,8 @@ export class PythonBackend extends EventEmitter {
     this.client?.rejectAll(err);
     this.proc = null;
     this.client = null;
-    if (this.state === "ready") {
+    if (this.state === "ready" || this.state === "starting") {
+      this.state = "restarting";
       void this.attemptRestart();
     }
   }
@@ -178,7 +190,7 @@ export class PythonBackend extends EventEmitter {
       return;
     }
     this.isRestarting = true;
-    this.state = "restarting";
+    // state is already set to "restarting" by the caller
     this.emit("restarting");
     if (this._restartCount >= this.opts.maxRestarts) {
       this.state = "permanently_failed";
@@ -227,11 +239,10 @@ export class PythonBackend extends EventEmitter {
     return new BackendCrashedError(message);
   }
 
-  private waitProcExit(timeoutMs: number): Promise<void> {
+  private waitProcExit(proc: ChildProcess, timeoutMs: number): Promise<void> {
     return new Promise((resolve) => {
-      if (!this.proc) return resolve();
       const t = setTimeout(resolve, timeoutMs);
-      this.proc.once("exit", () => {
+      proc.once("exit", () => {
         clearTimeout(t);
         resolve();
       });
