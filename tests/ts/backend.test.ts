@@ -139,7 +139,8 @@ describe("PythonBackend failure semantics", () => {
       const t0 = Date.now();
       await expect(back.call("echo", { text: "x" })).rejects.toBeInstanceOf(BackendCrashedError);
       const elapsed = Date.now() - t0;
-      expect(elapsed).toBeLessThan(backoffMs[0] / 2); // キューイングしていないことをバックオフ時間との相対値で検証
+      expect(backoffMs[0]).toBeDefined();
+      expect(elapsed).toBeLessThan(backoffMs[0]! / 2); // キューイングしていないことをバックオフ時間との相対値で検証
       // restart 完了後の通常応答も確認
       await waitForState(back, "ready", 10000);
       const res = (await back.call("echo", { text: "after" })) as { text: string };
