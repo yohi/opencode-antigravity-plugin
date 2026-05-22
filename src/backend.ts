@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { spawn, type ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { JsonRpcClient } from "./jsonrpc.js";
 import {
   BackendCrashedError,
@@ -28,7 +29,7 @@ export class PythonBackend extends EventEmitter {
   private _restartCount = 0;
   private generation = 0;
   private stdoutBuf = "";
-  private restartTimer: NodeJS.Timeout | null = null;
+  private restartAbortController: AbortController | null = null;
 
   constructor(private readonly opts: PythonBackendOptions) {
     super();
@@ -88,9 +89,9 @@ export class PythonBackend extends EventEmitter {
   async stop(): Promise<void> {
     this.state = "stopped";
     this.generation++; // invalidate existing handlers
-    if (this.restartTimer) {
-      clearTimeout(this.restartTimer);
-      this.restartTimer = null;
+    if (this.restartAbortController) {
+      this.restartAbortController.abort();
+      this.restartAbortController = null;
     }
     if (this.proc) {
       this.proc.kill("SIGTERM");
@@ -187,12 +188,17 @@ export class PythonBackend extends EventEmitter {
     }
     const wait = this.opts.backoffMs[this._restartCount] ?? 4000;
     this._restartCount += 1;
-    await new Promise<void>((resolve) => {
-      this.restartTimer = setTimeout(() => {
-        this.restartTimer = null;
-        resolve();
-      }, wait);
-    });
+
+    try {
+      this.restartAbortController = new AbortController();
+      await sleep(wait, undefined, { signal: this.restartAbortController.signal });
+    } catch {
+      this.isRestarting = false;
+      return;
+    } finally {
+      this.restartAbortController = null;
+    }
+
     if (this.state === "stopped" || this.state === "permanently_failed") {
       this.isRestarting = false;
       return;
