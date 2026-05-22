@@ -48,7 +48,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
     logger.error({ err }, "Backend permanently failed");
     return {
       status: 503,
-      body: { error: { type: "backend_unavailable", message: "An internal server error occurred" } },
+      body: { error: { type: "backend_unavailable", message: "backend permanently failed" } },
     };
   }
   if (err instanceof BackendCrashedError) {
@@ -58,14 +58,14 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
       body: {
         error: {
           type: "backend_unavailable",
-          message: "An internal server error occurred",
+          message: "backend restarting, retry later",
         },
       },
     };
   }
   if (err instanceof BackendTimeoutError) {
     logger.error({ err }, "Backend timeout");
-    return { status: 504, body: { error: { type: "timeout", message: "request timed out" } } };
+    return { status: 504, body: { error: { type: "timeout", message: err.message } } };
   }
   if (err instanceof BackendResponseError) {
     if (err.code === -32602) {
@@ -85,7 +85,7 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
     logger.warn({ err }, "Not implemented");
     return {
       status: 501,
-      body: { error: { type: "not_implemented", message: "feature not implemented" } },
+      body: { error: { type: "not_implemented", message: err.message } },
     };
   }
   if (err instanceof ProtocolError) {

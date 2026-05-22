@@ -1,11 +1,12 @@
 import { PythonBackend } from "./backend.js";
 import { createServer } from "./server.js";
+import { logger } from "./logger.js";
 
 async function main(): Promise<void> {
   const rawPort = process.env.PORT ?? "11435";
   const port = parseInt(rawPort, 10);
   if (isNaN(port) || port < 1 || port > 65535) {
-    console.error(JSON.stringify({ level: "error", msg: "invalid port", port: rawPort }));
+    logger.error({ port: rawPort }, "invalid port");
     process.exit(1);
   }
 
@@ -23,20 +24,20 @@ async function main(): Promise<void> {
   const server = createServer(backend);
 
   server.once("error", async (err) => {
-    console.error(JSON.stringify({ level: "error", msg: "server error", err: String(err) }));
+    logger.error({ err }, "server error");
     await backend.stop().catch(() => {});
     process.exit(1);
   });
 
   server.listen(port, "127.0.0.1", () => {
-    console.log(JSON.stringify({ level: "info", msg: "listening", port }));
+    logger.info({ port }, "listening");
   });
 
   let shuttingDown = false;
   const shutdown = async (sig: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log(JSON.stringify({ level: "info", msg: "shutdown", signal: sig }));
+    logger.info({ signal: sig }, "shutdown");
     await new Promise<void>((r) => server.close(() => r()));
     await backend.stop();
     process.exit(0);
@@ -46,6 +47,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error(JSON.stringify({ level: "error", msg: "startup failed", err: String(err) }));
+  logger.error({ err }, "startup failed");
   process.exit(1);
 });
