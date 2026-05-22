@@ -87,3 +87,8 @@ def test_format_error_without_data() -> None:
     err = format_error(JsonRpcError(id=1, code=-32602, message="Invalid params"))
     assert err == '{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}}'
 
+def test_parse_exceeds_1mb() -> None:
+    padding = "a" * (1024 * 1024)
+    large_payload = f'{{"jsonrpc":"2.0","id":1,"method":"echo","params":{{"text":"{padding}"}}}}'
+    with pytest.raises(JsonRpcInvalidRequestError, match="exceeds 1 MB"):
+        parse_request(large_payload)
