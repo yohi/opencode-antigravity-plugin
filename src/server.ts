@@ -8,50 +8,58 @@ const MAX_BODY_BYTES = 1 * 1024 * 1024; // 1 MiB
 
 export function createServer(backend: PythonBackend): http.Server {
   return http.createServer(async (req, res) => {
-    const requestId = randomUUID();
-    res.setHeader("X-Request-Id", requestId);
+    try {
+      const requestId = randomUUID();
+      res.setHeader("X-Request-Id", requestId);
 
-    const urlPath = req.url?.split("?")[0] ?? "";
+      const urlPath = req.url?.split("?")[0] ?? "";
 
-    if (req.method === "GET" && urlPath === "/healthz") {
-      const state = backend.currentState;
-      if (state !== "ready") {
-        return sendJson(res, 503, {
-          status: state,
+      if (req.method === "GET" && urlPath === "/healthz") {
+        const state = backend.currentState;
+        if (state !== "ready") {
+          return sendJson(res, 503, {
+            status: state,
+            python_restarts: backend.restartCount,
+          });
+        }
+        return sendJson(res, 200, {
+          status: "ok",
           python_restarts: backend.restartCount,
         });
       }
-      return sendJson(res, 200, {
-        status: "ok",
-        python_restarts: backend.restartCount,
-      });
-    }
 
-    if (req.method === "GET" && urlPath === "/v1/models") {
-      return sendJson(res, 200, {
-        object: "list",
-        data: [{ id: "opencode-antigravity-echo", object: "model" }],
-      });
-    }
+      if (req.method === "GET" && urlPath === "/v1/models") {
+        return sendJson(res, 200, {
+          object: "list",
+          data: [{ id: "opencode-antigravity-echo", object: "model" }],
+        });
+      }
 
-    if (req.method === "POST" && urlPath === "/v1/chat/completions") {
-      try {
-        const body = await readJson<OpenAIChatRequest>(req);
-        if (body.stream === true) {
-          throw new NotImplementedError("streaming is not supported in MVP");
+      if (req.method === "POST" && urlPath === "/v1/chat/completions") {
+        try {
+          const body = await readJson<OpenAIChatRequest>(req);
+          if (body.stream === true) {
+            throw new NotImplementedError("streaming is not supported in MVP");
+          }
+          const result = await backend.call("chat.completions", body);
+          return sendJson(res, 200, result);
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          const { status, body } = toOpenAIError(error);
+          return sendJson(res, status, body);
         }
-        const result = await backend.call("chat.completions", body);
-        return sendJson(res, 200, result);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        const { status, body } = toOpenAIError(error);
+      }
+
+      return sendJson(res, 404, {
+        error: { type: "not_found", message: `no route for ${req.method} ${urlPath}` },
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      const { status, body } = toOpenAIError(error);
+      if (!res.headersSent) {
         return sendJson(res, status, body);
       }
     }
-
-    return sendJson(res, 404, {
-      error: { type: "not_found", message: `no route for ${req.method} ${req.url}` },
-    });
   });
 }
 

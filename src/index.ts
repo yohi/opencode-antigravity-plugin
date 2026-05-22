@@ -22,9 +22,9 @@ async function main(): Promise<void> {
 
   const server = createServer(backend);
 
-  server.on("error", async (err) => {
+  server.once("error", async (err) => {
     console.error(JSON.stringify({ level: "error", msg: "server error", err: String(err) }));
-    await backend.stop();
+    await backend.stop().catch(() => {});
     process.exit(1);
   });
 
