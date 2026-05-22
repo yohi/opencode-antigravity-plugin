@@ -1,4 +1,4 @@
-import { BackendTimeoutError } from "./errors.js";
+import { BackendTimeoutError, BackendResponseError } from "./errors.js";
 import type { JsonRpcId, JsonRpcMessage, JsonRpcRequest, JsonRpcResponse } from "./types.js";
 
 const MAX_MESSAGE_BYTES = 1024 * 1024; // 1 MB (design §7.4)
@@ -116,7 +116,7 @@ export class JsonRpcClient {
     this.pending.delete(msg.id!);
     clearTimeout(entry.timeoutHandle);
     if ("error" in msg) {
-      entry.reject(new Error(`[${msg.error.code}] ${msg.error.message}`));
+      entry.reject(new BackendResponseError(msg.error.code, msg.error.message));
     } else {
       entry.resolve(msg.result);
     }

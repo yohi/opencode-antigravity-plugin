@@ -21,6 +21,16 @@ export class BackendPermanentlyFailedError extends Error {
   }
 }
 
+export class BackendResponseError extends Error {
+  readonly name = "BackendResponseError";
+  constructor(
+    public readonly code: number,
+    message: string
+  ) {
+    super(`[${code}] ${message}`);
+  }
+}
+
 export class ProtocolError extends Error {
   readonly name = "ProtocolError";
 }
@@ -56,6 +66,20 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
   if (err instanceof BackendTimeoutError) {
     logger.error({ err }, "Backend timeout");
     return { status: 504, body: { error: { type: "timeout", message: "request timed out" } } };
+  }
+  if (err instanceof BackendResponseError) {
+    if (err.code === -32602) {
+      logger.warn({ err }, "Backend invalid params");
+      return {
+        status: 400,
+        body: { error: { type: "invalid_request_error", message: err.message } },
+      };
+    }
+    logger.error({ err }, "Backend internal error");
+    return {
+      status: 500,
+      body: { error: { type: "server_error", message: err.message } },
+    };
   }
   if (err instanceof NotImplementedError) {
     logger.warn({ err }, "Not implemented");
