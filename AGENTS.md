@@ -90,7 +90,7 @@ npx tsx src/index.ts
 
 ### TypeScript
 - Use modern ESM imports (always suffix file imports with `.js` e.g., `import { X } from "./errors.js"`).
-- Keep functions pure and delegate asynchronous state machines (like subprocess restarts) to `PythonBackend` via event emitters.
+- Keep functions pure and let `PythonBackend` manage the asynchronous lifecycle (spawning, restarts, etc.) of the backend process.
 - Use `pino` for logging and structure it with `{ err }` or relevant context objects.
 
 ### Python
