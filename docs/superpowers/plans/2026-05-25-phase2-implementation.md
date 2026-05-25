@@ -285,6 +285,9 @@ on:
   pull_request:
     branches:
       - '**'
+  schedule:
+    - cron: '0 18 * * *'   # JST 03:00 / UTC 18:00 (設計書 7.5)
+  workflow_dispatch: {}     # 手動実行用
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -400,24 +403,6 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         run: uv run pnpm test:e2e:live
 ```
-
-`on:` トリガーには以下を追加する (既存の push / pull_request は維持):
-
-```yaml
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - '**'
-  schedule:
-    - cron: '0 18 * * *'   # JST 03:00 / UTC 18:00 (設計書 7.5)
-  workflow_dispatch: {}     # 手動実行用
-```
-
-> 既存 SHA pin (`@<commit-sha> # <semver>`) は変更しない。Phase 2 のスコープを超えるため、Action のバージョン更新は別タスクで扱う。
-> `live-nightly` ジョブは `GEMINI_API_KEY` シークレットが未設定でも fail しない (Step 1 のゲートで skip するため)、フォーク PR の安全性を確保。
 
 - [ ] **Step 4: YAML 構文を devcontainer 内で検証**
 
@@ -554,17 +539,18 @@ PY
 
 ```bash
 uv run python - <<'PY'
-import asyncio, statistics, time
+import asyncio, os, statistics, time
 import google.antigravity as ga
 
 async def measure():
     samples = []
+    model = os.environ.get("ANTIGRAVITY_MODEL", "gemini-2.5-pro")
     for _ in range(10):
         t0 = time.perf_counter()
-        async with ga.Agent(ga.LocalAgentConfig(model="gemini-1.5-flash")) as _agent:
+        async with ga.Agent(ga.LocalAgentConfig(model=model)) as _agent:
             pass
         samples.append((time.perf_counter() - t0) * 1000.0)
-    print(f"median={statistics.median(samples):.1f}ms  p95={sorted(samples)[8]:.1f}ms  raw={[f'{x:.0f}' for x in samples]}")
+    print(f"model={model} median={statistics.median(samples):.1f}ms  p95={sorted(samples)[8]:.1f}ms  raw={[f'{x:.0f}' for x in samples]}")
 
 asyncio.run(measure())
 PY
@@ -599,8 +585,19 @@ Expected: 中央値を `<起動時間 ms>` として後続 Step 3 で記録。**
 | `Agent.chat(messages=[...])` | ✅/❌ | ✅/❌ | ✅/❌ | ✅/❌ | — |
 | `history` 引数経由 | ✅/❌ | ✅/❌ | ✅/❌ | ✅/❌ | — |
 
-- 採用理由 (選定基準のどれを満たし、他候補がなぜ落ちたか):
-- 代替フォールバック採用判断 (3 候補全部 ❌ の場合のみ): Agent cold-start `<median ms>` < `OAG_AGENT_COLDSTART_BUDGET_MS` (100ms) を満たすか YES/NO
+### 採用理由
+- 選定基準のどれを満たし、他候補がなぜ落ちたか:
+
+### 判定結果
+
+| ケース | 条件 | 判定 | 遷移先 |
+|---|---|---|---|
+| (1) 候補採用 | いずれかの候補が 4 項目すべて ✅ | 該当 API を採用 | Step 4 へ |
+| (2) フォールバック採用 | 3 候補すべて ❌ かつ Agent cold-start median < `OAG_AGENT_COLDSTART_BUDGET_MS` (100ms) | Agent 再起動フォールバックを採用 | Step 4 へ |
+| (3) 実装不可 | 3 候補すべて ❌ かつ Agent cold-start median >= `OAG_AGENT_COLDSTART_BUDGET_MS` (100ms) | Phase 2 実装不可 | ブレインストーミングへ戻る |
+
+### 代替フォールバック採用判断
+- Agent cold-start `<median ms>` < `OAG_AGENT_COLDSTART_BUDGET_MS` (100ms) を満たすか YES/NO
 
 ## 3. thinking / tool_call イベント (将来 Phase 用調査)
 - ストリームインターフェース型:
