@@ -300,6 +300,8 @@ await write_response(req_id, final_meta)                 # 最終 Response (Sect
 - `_final` を一度も yield しない (= 通常終了のみ) ハンドラに対しては、dispatch 側で `final_meta = {}` のまま最終 Response を送出する。Section 4.3.1 の TS 側包装で `finish_reason: "stop"`, `usage: {}` を補完する
 - `_final` フィールドは **Python ↔ TS 間の内部規約**。OpenAI クライアントには露出しない (Section 4.3.1 で TS が `choices[0].finish_reason` 等に置き換える)
 - 通常 chunk と sentinel を見分ける都合上、Notification の `params.delta` には `_final` というキーを置かない (将来の OpenAI API 拡張との衝突回避もこの命名で吸収済み)
+- **例外ハンドリング (重要):** `agen` が `_final` yield 前に例外を投げた場合、dispatch 側は `write_response` を呼び出さず、代わりにエラーレスポンスを返す (JSON-RPC error)。`agen.aclose()` は `finally` ブロックで確実に実行する
+- **クライアント切断 (重要):** クライアント切断等で `_final` なしに generator が終了する場合、最終 Response を送出せず、graceful に終了する。`agen.aclose()` は `finally` ブロックで確実に実行する
 
 ### 5.2 stream:false の挙動
 
