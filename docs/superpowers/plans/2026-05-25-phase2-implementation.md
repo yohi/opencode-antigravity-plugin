@@ -1920,7 +1920,7 @@ async def _aggregate_impl(cp: _ChatParams, client: AntigravityClientBase) -> dic
                     # 設計書 5.2.1: 上限超過は SdkApiError(-32013) で打ち切り
                     from .errors import SdkApiError
                     raise SdkApiError(
-                        f"aggregate response exceeded OAG_MAX_AGGREGATE_TOKENS={max_tokens}"
+                        f"aggregation exceeded OAG_MAX_AGGREGATE_TOKENS (N={max_tokens})"
                     )
     finally:
         # generator を確実に解放してメモリリークを防ぐ (設計書 5.2.1)
@@ -2683,6 +2683,15 @@ import { describe, expect, it, vi } from "vitest";
 import { PythonBackend } from "../../src/backend.js";
 
 describe("PythonBackend.streamingCall", () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  it("round-trips chunks and final response (#28)", async () => {
+    process.env.OAG_BACKEND_MODE = "mock";
+    process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
   it("round-trips chunks and final response (#28)", async () => {
     process.env.OAG_BACKEND_MODE = "mock";
     process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
@@ -2715,6 +2724,10 @@ describe("PythonBackend.streamingCall", () => {
   });
 
   it("fires idle timeout when chunks stop arriving (#29)", async () => {
+    process.env.OAG_BACKEND_MODE = "mock";
+    process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
+    process.env.OAG_MOCK_INITIAL_DELAY_MS = "500";
+    process.env.OAG_STREAM_IDLE_TIMEOUT_MS = "100";
     process.env.OAG_BACKEND_MODE = "mock";
     process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
     process.env.OAG_MOCK_INITIAL_DELAY_MS = "500";
@@ -2906,6 +2919,8 @@ if (stream) {
 }
 
 // stream:false は Phase 1 互換: backend.call() → sendJson
+// 非ストリーミングパスは TS 側 Zod を通さず、Python 側 Pydantic が最終検証を担う（設計書 Section 6.4）
+const result = await backend.call("chat.completions", body);
 const result = await backend.call("chat.completions", body);
 return sendJson(res, 200, result);
 ```
