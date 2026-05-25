@@ -1212,7 +1212,7 @@ def create_client(model: str, mode: str, api_key: Optional[str]) -> AntigravityC
     raise ValueError(f"unknown OAG_BACKEND_MODE: {mode}")
 ```
 
-- [ ] **⚠️ 重要: Step 6: pyproject.toml に optional dep を追加し、uv.lock を更新
+- [ ] **⚠️ 重要: Step 6: pyproject.toml に optional dep を追加し、uv.lock を更新**
 
 `pyproject.toml` に以下を追記:
 
