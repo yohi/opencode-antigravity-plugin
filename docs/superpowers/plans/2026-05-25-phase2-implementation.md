@@ -2692,9 +2692,6 @@ describe("PythonBackend.streamingCall", () => {
   it("round-trips chunks and final response (#28)", async () => {
     process.env.OAG_BACKEND_MODE = "mock";
     process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
-  it("round-trips chunks and final response (#28)", async () => {
-    process.env.OAG_BACKEND_MODE = "mock";
-    process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
     const backend = new PythonBackend({
       pythonBin: process.env.PYTHON_BIN ?? "python",
       moduleName: "opencode_antigravity",
@@ -2724,10 +2721,6 @@ describe("PythonBackend.streamingCall", () => {
   });
 
   it("fires idle timeout when chunks stop arriving (#29)", async () => {
-    process.env.OAG_BACKEND_MODE = "mock";
-    process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
-    process.env.OAG_MOCK_INITIAL_DELAY_MS = "500";
-    process.env.OAG_STREAM_IDLE_TIMEOUT_MS = "100";
     process.env.OAG_BACKEND_MODE = "mock";
     process.env.ANTIGRAVITY_MODEL = "gemini-2.5-pro";
     process.env.OAG_MOCK_INITIAL_DELAY_MS = "500";
@@ -2920,7 +2913,6 @@ if (stream) {
 
 // stream:false は Phase 1 互換: backend.call() → sendJson
 // 非ストリーミングパスは TS 側 Zod を通さず、Python 側 Pydantic が最終検証を担う（設計書 Section 6.4）
-const result = await backend.call("chat.completions", body);
 const result = await backend.call("chat.completions", body);
 return sendJson(res, 200, result);
 ```
