@@ -14,6 +14,11 @@
 
 **Source Spec:** [`docs/superpowers/specs/2026-05-25-phase2-design.md`](../specs/2026-05-25-phase2-design.md)
 
+> [!IMPORTANT]
+> **Current blocker (2026-05-26):** T1.1 の SDK スパイク調査で、`google-antigravity==0.1.0` は OpenAI Chat Completions の `messages` 配列を role 付き履歴として 1 回で渡す公開 API を持たず、Agent cold-start も median `1012.6ms` で設計閾値 `OAG_AGENT_COLDSTART_BUDGET_MS=100ms` を超えることが判明した。
+> そのため、T2.3 以降の実 SDK クライアント実装へ進む前に Phase 2 設計を再検討すること。
+> Tracking Issue: <https://github.com/yohi/opencode-antigravity-plugin/issues/33> / SDK spike PR: <https://github.com/yohi/opencode-antigravity-plugin/pull/32>
+
 ---
 
 ## Gitブランチ運用フロー (AI-Native Stacked PR Workflow)
