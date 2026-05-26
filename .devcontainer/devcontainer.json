@@ -12,15 +12,15 @@
     "OAG_REQUEST_TIMEOUT_MS": "60000",
     "OAG_STREAM_IDLE_TIMEOUT_MS": "30000"
   },
-"postCreateCommand": "bash -lc 'pnpm install || true && uv sync || true'",
-"customizations": {
-"vscode": {
-"extensions": [
-"ms-python.python",
-"charliermarsh.ruff",
-"esbenp.prettier-vscode",
-"dbaeumer.vscode-eslint"
-]
-}
-}
+  "postCreateCommand": "bash -lc 'pnpm install || true && uv sync || true'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
 }
