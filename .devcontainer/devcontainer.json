@@ -6,15 +6,21 @@
     "11435": { "label": "OpenAI-compatible endpoint", "onAutoForward": "silent" }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "bash -lc 'pnpm install || true && uv sync || true'",
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "charliermarsh.ruff",
-        "esbenp.prettier-vscode",
-        "dbaeumer.vscode-eslint"
-      ]
-    }
-  }
+  "containerEnv": {
+    "OAG_BACKEND_MODE": "mock",
+    "ANTIGRAVITY_MODEL": "gemini-2.5-pro",
+    "OAG_REQUEST_TIMEOUT_MS": "60000",
+    "OAG_STREAM_IDLE_TIMEOUT_MS": "30000"
+  },
+"postCreateCommand": "bash -lc 'pnpm install || true && uv sync || true'",
+"customizations": {
+"vscode": {
+"extensions": [
+"ms-python.python",
+"charliermarsh.ruff",
+"esbenp.prettier-vscode",
+"dbaeumer.vscode-eslint"
+]
+}
+}
 }
