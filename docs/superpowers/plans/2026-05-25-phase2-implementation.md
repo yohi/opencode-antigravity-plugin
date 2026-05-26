@@ -208,14 +208,14 @@ docker run --rm -e OAG_BACKEND_MODE -e ANTIGRAVITY_MODEL \
 
 Expected: ローカルで設定済みの値が表示される (`containerEnv` は VS Code が注入するため、ここではビルドの健全性のみ確認)。
 
-- [ ] **Step 5: コミット**
+- [x] **Step 5: コミット**
 
 ```bash
 git add .devcontainer/devcontainer.json
 git commit -m "chore(devcontainer): Phase 2 既定環境変数 (OAG_BACKEND_MODE=mock 等) を注入"
 ```
 
-- [ ] **Step 6: プッシュと Draft PR 作成**
+- [x] **Step 6: プッシュと Draft PR 作成**
 
 ```bash
 git push -u origin feature/phase2/phase0-devcontainer
@@ -630,7 +630,7 @@ gh pr create --draft --base master --title "docs(spec): Phase 2 SDK スパイク
   --body "Section 11.1 の不確定要素 (SDK 例外型 / messages 一括渡し API / 起動コスト) を確定。後続コードタスクの参照元。"
 ```
 
-- [ ] **Step 7: Draft PR URL を `.stack-urls.md` に追記**
+- [x] **Step 7: Draft PR URL を `.stack-urls.md` に追記**
 
 ```markdown
 - T1.1: https://<pr-url>
