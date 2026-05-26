@@ -472,7 +472,7 @@ gh pr create --draft --base master \
 
 - Create: `docs/superpowers/specs/2026-05-25-phase2-sdk-spike.md`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -486,7 +486,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: SDK 実物を一時的に sync して API を確認**
+- [x] **Step 2: SDK 実物を一時的に sync して API を確認**
 
 ```bash
 uv pip install --no-deps google-antigravity   # 解析目的のみ。pyproject には載せない
@@ -504,7 +504,7 @@ PY
 
 Expected: `Agent`, `Conversation`, `LocalAgentConfig` 等の公開 API 一覧。
 
-- [ ] **Step 2.1: 一括渡し API を設計書 3.3.1 の優先順位で評価**
+- [x] **Step 2.1: 一括渡し API を設計書 3.3.1 の優先順位で評価**
 
 設計書 Section 3.3.1 の優先順位表 (1) `Conversation.chat(messages=[...])` → (2) `Agent.chat(messages=[...])` → (3) `history` 引数経由 の順で、各候補に対し以下の **選定基準 4 項目** をチェックし結果を表に埋める:
 
@@ -536,7 +536,7 @@ print(inspect.signature(ga.Agent.chat) if hasattr(ga.Agent, "chat") else "no Age
 PY
 ```
 
-- [ ] **Step 2.2: Agent cold-start 時間を計測 (代替フォールバック判定用)**
+- [x] **Step 2.2: Agent cold-start 時間を計測 (代替フォールバック判定用)**
 
 設計書 3.3.1 の代替フォールバック (リクエストごとに Agent 再起動) が成立する閾値 `OAG_AGENT_COLDSTART_BUDGET_MS` (既定 100ms) を超えないかを確認する:
 
@@ -561,7 +561,7 @@ PY
 
 Expected: 中央値を `<起動時間 ms>` として後続 Step 3 で記録。**100ms 以上の場合は長寿命 Agent 採用前提が崩れるため、Phase 2 のブレインストーミングに戻る** (設計書 3.3.1 末尾の条件)。
 
-- [ ] **Step 3: 設計書 Section 11.1 の不確定要素を確定する**
+- [x] **Step 3: 設計書 Section 11.1 の不確定要素を確定する**
 
 `docs/superpowers/specs/2026-05-25-phase2-sdk-spike.md` を作成し、最低限以下のセクションを埋める:
 
@@ -611,7 +611,7 @@ Expected: 中央値を `<起動時間 ms>` として後続 Step 3 で記録。**
 - 長寿命 Agent 採用の妥当性: OK (median < 100ms) / 要再検討 (median >= 100ms → ブレインストーミングへ戻る)
 ```
 
-- [ ] **Step 4: pyproject.toml の依存関係はまだ更新しない**
+- [x] **Step 4: pyproject.toml の依存関係はまだ更新しない**
 
 Phase 2 本体の実装タスクで決定する。本タスクは情報収集のみ。
 
