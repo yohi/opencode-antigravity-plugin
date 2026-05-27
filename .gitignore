@@ -24,3 +24,6 @@ Thumbs.db
 # Build artifacts
 build/
 *.tsbuildinfo
+
+# Git worktrees
+.worktrees/
