@@ -3573,14 +3573,14 @@ pnpm test:unit
 pnpm build
 ```
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add src/server.ts tests/ts/healthz.phase2.test.ts
 git commit -m "feat(ts): /healthz に backend_mode と model を追加"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/healthz
