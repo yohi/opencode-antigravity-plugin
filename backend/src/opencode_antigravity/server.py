@@ -50,7 +50,7 @@ def run(stdin: BinaryIO, stdout: BinaryIO, handlers: dict[str, Handler] | None =
             logger.warning("invalid utf-8 sequence in input")
             err = JsonRpcError(id=None, code=-32700, message="Parse error: invalid utf-8")
             out = format_error(err)
-            stdout.write((out + "\n").encode("utf-8"))
+            stdout.write(out.encode("utf-8"))
             stdout.flush()
             continue
 
@@ -58,7 +58,7 @@ def run(stdin: BinaryIO, stdout: BinaryIO, handlers: dict[str, Handler] | None =
             continue
         out = _process_one(line, table)
         if out is not None:
-            stdout.write((out + "\n").encode("utf-8"))
+            stdout.write(out.encode("utf-8"))
             stdout.flush()
 
 

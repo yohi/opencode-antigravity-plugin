@@ -71,13 +71,14 @@ def test_parse_extra_fields_forbidden() -> None:
 
 def test_format_response() -> None:
     resp = format_response(JsonRpcSuccess(id=1, result={"text": "hi"}))
-    assert resp == '{"jsonrpc":"2.0","id":1,"result":{"text":"hi"}}'
+    assert resp == '{"jsonrpc":"2.0","id":1,"result":{"text":"hi"}}\n'
 
 
 def test_format_error_with_data() -> None:
     err_str = format_error(
         JsonRpcError(id=1, code=-32602, message="Invalid params", data={"key": "val"})
     )
+    assert err_str.endswith("\n")
     parsed = json.loads(err_str)
     assert parsed["error"]["data"] == {"key": "val"}
     assert parsed["error"]["code"] == -32602
@@ -85,7 +86,7 @@ def test_format_error_with_data() -> None:
 
 def test_format_error_without_data() -> None:
     err = format_error(JsonRpcError(id=1, code=-32602, message="Invalid params"))
-    assert err == '{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}}'
+    assert err == '{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params"}}\n'
 
 def test_parse_size_limits() -> None:
     # 1MB exactly
