@@ -103,3 +103,65 @@ def test_classify_unknown_exception_fallbacks_to_api_error() -> None:
     fallback = classify_sdk_error(RuntimeError("mystery"))
     assert isinstance(fallback, SdkApiError)
     assert "RuntimeError" in fallback.message
+
+
+class _FakeAntigravityValidationError(Exception):
+    pass
+
+
+_FakeAntigravityValidationError.__module__ = "google.antigravity.types"
+_FakeAntigravityValidationError.__qualname__ = "AntigravityValidationError"
+
+
+def test_classify_antigravity_validation_error_maps_to_model_error() -> None:
+    exc = _FakeAntigravityValidationError("invalid model params")
+    assert isinstance(classify_sdk_error(exc), SdkModelError)
+
+
+class _FakeAPIError(Exception):
+    pass
+
+
+_FakeAPIError.__module__ = "google.genai.errors"
+_FakeAPIError.__qualname__ = "APIError"
+
+
+def test_classify_api_error_maps_to_sdk_api_error() -> None:
+    assert isinstance(classify_sdk_error(_FakeAPIError("backend error")), SdkApiError)
+
+
+class _FakeServerError(Exception):
+    pass
+
+
+_FakeServerError.__module__ = "google.genai.errors"
+_FakeServerError.__qualname__ = "ServerError"
+
+
+def test_classify_server_error_maps_to_sdk_api_error() -> None:
+    assert isinstance(classify_sdk_error(_FakeServerError("crash")), SdkApiError)
+
+
+def test_classify_antigravity_connection_with_401_boundary() -> None:
+    # Should match: 401 as a word
+    exc1 = _FakeAntigravityConnectionError("error 401: unauthorized")
+    assert isinstance(classify_sdk_error(exc1), SdkAuthError)
+
+    # Should NOT match: 401 inside 4010
+    exc2 = _FakeAntigravityConnectionError("connect to port 4010 failed")
+    assert isinstance(classify_sdk_error(exc2), SdkConnectionError)
+
+
+def test_classify_client_error_handles_status_code_zero() -> None:
+    # If status_code is 0, it should be used instead of code
+    class _ErrorWithZero(Exception):
+        def __init__(self) -> None:
+            self.status_code = 0
+            self.code = 429
+
+    _ErrorWithZero.__module__ = "google.genai.errors"
+    _ErrorWithZero.__qualname__ = "ClientError"
+
+    res = classify_sdk_error(_ErrorWithZero())
+    # status 0 is not 429 or 404, so it should fall through to SdkApiError
+    assert isinstance(res, SdkApiError)

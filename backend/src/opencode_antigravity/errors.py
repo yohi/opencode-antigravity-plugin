@@ -44,7 +44,7 @@ def sdk_exception_to_jsonrpc_error(exc: BaseException) -> dict[str, object]:
     return {"code": -32603, "message": f"Internal error: {exc}"}
 
 
-_AUTH_PATTERN = re.compile(r"api[\s_-]?key|unauthor|401", re.IGNORECASE)
+_AUTH_PATTERN = re.compile(r"api[\s_-]?key|unauthor|\b401\b", re.IGNORECASE)
 _RATE_LIMIT_HTTP_STATUS = 429
 _MODEL_NOT_FOUND_HTTP_STATUS = 404
 
@@ -68,7 +68,8 @@ def classify_sdk_error(exc: BaseException) -> SdkError:
     if type_name.endswith("AntigravityValidationError"):
         return SdkModelError(str(exc))
 
-    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    _sc = getattr(exc, "status_code", None)
+    status = _sc if _sc is not None else getattr(exc, "code", None)
     if type_name.endswith("ClientError"):
         if status == _RATE_LIMIT_HTTP_STATUS:
             return SdkRateLimitError(str(exc))
