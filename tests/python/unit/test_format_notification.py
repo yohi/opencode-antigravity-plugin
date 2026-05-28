@@ -3,7 +3,6 @@ import json
 import pytest
 from opencode_antigravity.protocol import (
     MAX_MESSAGE_BYTES,
-    JsonRpcInvalidRequestError,
     format_notification,
 )
 
