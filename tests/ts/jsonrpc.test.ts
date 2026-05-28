@@ -40,6 +40,16 @@ describe("jsonrpc.parseMessage", () => {
     }
   });
 
+  test("parses notification with object params", () => {
+    const msg = parseMessage('{"jsonrpc":"2.0","method":"notify","params":{"key":"val"}}');
+    expect(msg).toEqual({ jsonrpc: "2.0", method: "notify", params: { key: "val" } });
+  });
+
+  test("parses notification with array params", () => {
+    const msg = parseMessage('{"jsonrpc":"2.0","method":"notify","params":["val1","val2"]}');
+    expect(msg).toEqual({ jsonrpc: "2.0", method: "notify", params: ["val1", "val2"] });
+  });
+
   test("accepts input with trailing CRLF", () => {
     const msg = parseMessage('{"jsonrpc":"2.0","id":1,"result":true}\r\n');
     expect(msg).toEqual({ jsonrpc: "2.0", id: 1, result: true });
