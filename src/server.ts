@@ -6,7 +6,9 @@ import type { OpenAIChatRequest } from "./types.js";
 
 const MAX_BODY_BYTES = 1 * 1024 * 1024; // 1 MiB
 
-export function createServer(backend: PythonBackend): http.Server {
+type ServerBackend = Pick<PythonBackend, "call" | "currentState" | "restartCount">;
+
+export function createServer(backend: ServerBackend): http.Server {
   return http.createServer(async (req, res) => {
     try {
       const requestId = randomUUID();
@@ -25,6 +27,8 @@ export function createServer(backend: PythonBackend): http.Server {
         return sendJson(res, 200, {
           status: "ok",
           python_restarts: backend.restartCount,
+          backend_mode: process.env.OAG_BACKEND_MODE ?? "mock",
+          model: process.env.ANTIGRAVITY_MODEL ?? "gemini-2.5-pro",
         });
       }
 

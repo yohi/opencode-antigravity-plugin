@@ -3488,7 +3488,7 @@ gh pr create --draft --base feature/phase2/ts-backend \
 - Modify: `src/server.ts` (`/healthz` ハンドラ)
 - Modify: `tests/ts/` 配下の既存 healthz テスト
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -3502,7 +3502,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: 失敗するテストを書く**
+- [x] **Step 2: 失敗するテストを書く**
 
 `tests/ts/healthz.phase2.test.ts`:
 
@@ -3545,7 +3545,7 @@ describe("GET /healthz Phase 2 fields", () => {
 });
 ```
 
-- [ ] **Step 3: テスト実行で失敗を確認**
+- [x] **Step 3: テスト実行で失敗を確認**
 
 ```bash
 pnpm test:unit -- healthz.phase2
@@ -3553,7 +3553,7 @@ pnpm test:unit -- healthz.phase2
 
 Expected: `backend_mode` / `model` が未実装で FAIL。
 
-- [ ] **Step 4: `/healthz` ハンドラを更新**
+- [x] **Step 4: `/healthz` ハンドラを更新**
 
 現行 `src/server.ts:25-28` の `sendJson(res, 200, {...})` 呼び出しに `backend_mode` / `model` を追加する (Express 風 `res.json` ではなく Phase 1 と同じヘルパーを継続利用):
 
@@ -3566,7 +3566,7 @@ return sendJson(res, 200, {
 });
 ```
 
-- [ ] **Step 5: テストが GREEN になるまで実行**
+- [x] **Step 5: テストが GREEN になるまで実行**
 
 ```bash
 pnpm test:unit
