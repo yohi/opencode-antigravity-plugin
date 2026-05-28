@@ -2845,14 +2845,14 @@ pnpm build
 
 Expected: 6 ケース PASS、TS エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add src/schemas.ts tests/ts/schemas.test.ts package.json pnpm-lock.yaml
 git commit -m "feat(ts): Phase A 用 Zod スキーマ ChatCompletionsParamsSchema を追加"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/ts-schemas
