@@ -2643,7 +2643,8 @@ echo "OK"
 export interface JsonRpcNotification {
   jsonrpc: "2.0";
   method: string;
-  params?: Record<string, unknown>;
+  params?: unknown;
+  id?: never;
 }
 
 // OpenAI Streaming Chunk
@@ -2655,7 +2656,7 @@ export interface ChatCompletionChunkDelta {
 export interface ChatCompletionChunkChoice {
   index: number;
   delta: ChatCompletionChunkDelta;
-  finish_reason: null | "stop" | "length" | "content_filter";
+  finish_reason: "stop" | "length" | "content_filter" | "tool_calls" | "function_call" | null;
 }
 
 export interface ChatCompletionChunk {

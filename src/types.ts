@@ -24,6 +24,7 @@ export interface JsonRpcNotification {
   jsonrpc: "2.0";
   method: string;
   params?: unknown;
+  id?: never;
 }
 
 export type JsonRpcMessage = JsonRpcRequest | JsonRpcResponse | JsonRpcNotification;

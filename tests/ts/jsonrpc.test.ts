@@ -50,6 +50,12 @@ describe("jsonrpc.parseMessage", () => {
     expect(msg).toEqual({ jsonrpc: "2.0", method: "notify", params: ["val1", "val2"] });
   });
 
+  test("parses notification without params", () => {
+    const msg = parseMessage('{"jsonrpc":"2.0","method":"notify"}');
+    expect(msg).toEqual({ jsonrpc: "2.0", method: "notify" });
+    expect(msg).not.toHaveProperty("params");
+  });
+
   test("accepts input with trailing CRLF", () => {
     const msg = parseMessage('{"jsonrpc":"2.0","id":1,"result":true}\r\n');
     expect(msg).toEqual({ jsonrpc: "2.0", id: 1, result: true });
