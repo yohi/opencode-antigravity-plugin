@@ -2977,14 +2977,14 @@ pnpm build
 
 Expected: 全 PASS、TS エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add src/errors.ts tests/ts/errors.sdk.test.ts
 git commit -m "feat(ts): SDK エラーコード (-32010〜-32015) を OpenAI エラー形式へマッピング"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/ts-errors
