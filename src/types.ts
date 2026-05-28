@@ -20,7 +20,13 @@ export interface JsonRpcError {
 }
 
 export type JsonRpcResponse = JsonRpcSuccess | JsonRpcError;
-export type JsonRpcMessage = JsonRpcRequest | JsonRpcResponse;
+export interface JsonRpcNotification {
+  jsonrpc: "2.0";
+  method: string;
+  params?: Record<string, unknown>;
+}
+
+export type JsonRpcMessage = JsonRpcRequest | JsonRpcResponse | JsonRpcNotification;
 
 export interface OpenAIChatMessage {
   role: "system" | "user" | "assistant";
@@ -44,4 +50,27 @@ export interface OpenAIChatResponse {
   object: "chat.completion";
   model: string;
   choices: OpenAIChatChoice[];
+}
+
+export interface ChatCompletionChunkDelta {
+  role?: "assistant";
+  content?: string;
+}
+
+export interface ChatCompletionChunkChoice {
+  index: number;
+  delta: ChatCompletionChunkDelta;
+  finish_reason: null | "stop" | "length" | "content_filter";
+}
+
+export interface ChatCompletionChunk {
+  id: string;
+  object: "chat.completion.chunk";
+  model: string;
+  choices: ChatCompletionChunkChoice[];
+}
+
+export interface ChatCompletionsChunkNotificationParams {
+  request_id: string;
+  delta: ChatCompletionChunkDelta;
 }
