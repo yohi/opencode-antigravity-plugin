@@ -1569,7 +1569,7 @@ Expected: prompt_folding 5 ケース + antigravity_client 4 ケース = 9 テス
 uv run pytest tests/python
 ```
 
-- [ ] **Step 9: コミット**
+- [x] **Step 9: コミット**
 
 ```bash
 git add backend/src/opencode_antigravity/prompt_folding.py \
@@ -1581,7 +1581,7 @@ git add backend/src/opencode_antigravity/prompt_folding.py \
 git commit -m "feat(python): per-request Agent + Chat ML 畳み込みで AntigravityClient を実装 (受け入れ#25 改訂, #32)"
 ```
 
-- [ ] **Step 10: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 10: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/python-antigravity-client
