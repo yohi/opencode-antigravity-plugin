@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+MAX_MESSAGE_BYTES = 1024 * 1024
+
 
 class JsonRpcModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -43,7 +45,7 @@ class JsonRpcInvalidRequestError(ValueError):
 
 def parse_request(line: str) -> JsonRpcRequest:
     """Parse one NDJSON line into a JsonRpcRequest. Raises specific errors on invalidity."""
-    if len(line) > 1024 * 1024 or len(line.encode("utf-8")) > 1024 * 1024:
+    if len(line) > MAX_MESSAGE_BYTES or len(line.encode("utf-8")) > MAX_MESSAGE_BYTES:
         raise JsonRpcInvalidRequestError("inbound message exceeds 1 MB")
 
     try:
@@ -68,7 +70,16 @@ def format_response(success: JsonRpcSuccess) -> str:
         {"jsonrpc": "2.0", "id": success.id, "result": success.result},
         separators=(",", ":"),
         ensure_ascii=False,
-    )
+    ) + "\n"
+
+
+def format_notification(method: str, params: dict[str, Any]) -> str:
+    """Format a JSON-RPC 2.0 Notification as one NDJSON line."""
+    payload = {"jsonrpc": "2.0", "method": method, "params": params}
+    line = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
+    if len(line.encode("utf-8")) > MAX_MESSAGE_BYTES:
+        raise ValueError(f"notification exceeds {MAX_MESSAGE_BYTES} bytes")
+    return line
 
 
 def format_error(err: JsonRpcError) -> str:
@@ -79,4 +90,4 @@ def format_error(err: JsonRpcError) -> str:
         {"jsonrpc": "2.0", "id": err.id, "error": body},
         separators=(",", ":"),
         ensure_ascii=False,
-    )
+    ) + "\n"
