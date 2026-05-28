@@ -2620,7 +2620,7 @@ gh pr create --draft --base feature/phase2/python-handlers-streaming \
 
 - Modify: `src/types.ts`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -2634,7 +2634,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: `src/types.ts` に型を追加**
+- [x] **Step 2: `src/types.ts` に型を追加**
 
 既存型は維持しつつ、以下を追加する:
 
@@ -2672,7 +2672,7 @@ export interface ChatCompletionsChunkNotificationParams {
 }
 ```
 
-- [ ] **Step 3: `pnpm build` で TypeScript 型チェックを通す**
+- [x] **Step 3: `pnpm build` で TypeScript 型チェックを通す**
 
 ```bash
 pnpm build
@@ -2680,14 +2680,14 @@ pnpm build
 
 Expected: エラー 0。
 
-- [ ] **Step 4: コミット**
+- [x] **Step 4: コミット**
 
 ```bash
 git add src/types.ts
 git commit -m "feat(ts): JSON-RPC Notification / OpenAI Streaming Chunk 型を追加"
 ```
 
-- [ ] **Step 5: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 5: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/ts-types
