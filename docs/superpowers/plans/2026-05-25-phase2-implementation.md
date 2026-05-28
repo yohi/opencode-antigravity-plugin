@@ -670,7 +670,7 @@ gh pr create --draft --base master --title "docs(spec): Phase 2 SDK スパイク
 - Create: `backend/src/opencode_antigravity/errors.py`
 - Create: `tests/python/unit/test_errors.py`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -684,7 +684,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: 失敗するテストを書く (`tests/python/unit/test_errors.py`)**
+- [x] **Step 2: 失敗するテストを書く (`tests/python/unit/test_errors.py`)**
 
 ```python
 from opencode_antigravity.errors import (
@@ -797,7 +797,7 @@ def test_classify_unknown_exception_fallbacks_to_api_error():
     assert "RuntimeError" in fallback.message
 ```
 
-- [ ] **Step 3: テスト実行で失敗を確認**
+- [x] **Step 3: テスト実行で失敗を確認**
 
 ```bash
 uv run pytest tests/python/unit/test_errors.py -v
@@ -805,7 +805,7 @@ uv run pytest tests/python/unit/test_errors.py -v
 
 Expected: `ModuleNotFoundError: No module named 'opencode_antigravity.errors'` で FAIL。
 
-- [ ] **Step 4: 最小実装を書く (`backend/src/opencode_antigravity/errors.py`)**
+- [x] **Step 4: 最小実装を書く (`backend/src/opencode_antigravity/errors.py`)**
 
 ```python
 """SDK 例外 → JSON-RPC エラーコード変換 (Phase 2)。
@@ -915,7 +915,7 @@ def classify_sdk_error(exc: BaseException) -> SdkError:
     return SdkApiError(f"unclassified SDK error: {type_name}: {exc}")
 ```
 
-- [ ] **Step 5: テストが GREEN になるまで実行**
+- [x] **Step 5: テストが GREEN になるまで実行**
 
 ```bash
 uv run pytest tests/python/unit/test_errors.py -v
@@ -924,14 +924,14 @@ uv run ruff check backend/src/opencode_antigravity/errors.py tests/python/unit/t
 
 Expected: 全 8 テスト PASS、ruff エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add backend/src/opencode_antigravity/errors.py tests/python/unit/test_errors.py
 git commit -m "feat(python): SDK 例外 → JSON-RPC エラーコード変換 (errors.py) を追加"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/python-errors
