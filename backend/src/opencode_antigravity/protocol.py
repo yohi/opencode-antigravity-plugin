@@ -70,7 +70,7 @@ def format_response(success: JsonRpcSuccess) -> str:
         {"jsonrpc": "2.0", "id": success.id, "result": success.result},
         separators=(",", ":"),
         ensure_ascii=False,
-    )
+    ) + "\n"
 
 
 def format_notification(method: str, params: dict[str, Any]) -> str:
@@ -78,7 +78,7 @@ def format_notification(method: str, params: dict[str, Any]) -> str:
     payload = {"jsonrpc": "2.0", "method": method, "params": params}
     line = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
     if len(line.encode("utf-8")) > MAX_MESSAGE_BYTES:
-        raise JsonRpcInvalidRequestError(f"notification exceeds {MAX_MESSAGE_BYTES} bytes")
+        raise ValueError(f"notification exceeds {MAX_MESSAGE_BYTES} bytes")
     return line
 
 
@@ -90,4 +90,4 @@ def format_error(err: JsonRpcError) -> str:
         {"jsonrpc": "2.0", "id": err.id, "error": body},
         separators=(",", ":"),
         ensure_ascii=False,
-    )
+    ) + "\n"

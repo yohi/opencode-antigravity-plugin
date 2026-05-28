@@ -40,7 +40,7 @@ def test_format_notification_utf8_multibyte() -> None:
 
 def test_format_notification_oversized_raises() -> None:
     huge = "x" * (MAX_MESSAGE_BYTES + 10)
-    with pytest.raises(JsonRpcInvalidRequestError):
+    with pytest.raises(ValueError, match="notification exceeds"):
         format_notification(
             method="chat.completions.chunk",
             params={"request_id": "r", "delta": {"content": huge}},
