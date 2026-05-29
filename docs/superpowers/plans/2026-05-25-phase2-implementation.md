@@ -2714,7 +2714,7 @@ gh pr create --draft --base master --title "feat(ts): Notification / Streaming C
 - Create: `src/schemas.ts`
 - Create: `tests/ts/schemas.test.ts`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -2728,13 +2728,13 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: zod を依存に追加**
+- [x] **Step 2: zod を依存に追加**
 
 ```bash
 pnpm add zod
 ```
 
-- [ ] **Step 3: 失敗するテストを書く (`tests/ts/schemas.test.ts`)**
+- [x] **Step 3: 失敗するテストを書く (`tests/ts/schemas.test.ts`)**
 
 > **設計判断 (factory パターン):** schema を環境変数で literal 固定すると、テストや並行プロセスで env を切り替えた場合に module キャッシュの影響で挙動が不安定になる。`createChatCompletionsParamsSchema(model)` を **factory として export**、起動時に環境変数から構築する default インスタンスのみ env 依存とする。テストは factory を直接呼んで model を明示的に指定する。
 
@@ -2803,7 +2803,7 @@ describe("ChatCompletionsParamsSchema (Phase A)", () => {
 });
 ```
 
-- [ ] **Step 4: `src/schemas.ts` を作成 (設計書 4.1.1)**
+- [x] **Step 4: `src/schemas.ts` を作成 (設計書 4.1.1)**
 
 ```ts
 import { z } from "zod";
@@ -2836,7 +2836,7 @@ export type ChatCompletionsParams = z.infer<typeof ChatCompletionsParamsSchema>;
 
 > **設計判断:** 本番コード (`src/server.ts`) は default の `ChatCompletionsParamsSchema` を import する。テストや schema バリエーション検証は factory `createChatCompletionsParamsSchema(model)` を直接呼ぶ。これにより `process.env` をテスト中に弄る必要がなく、`vi.resetModules()` も不要。env 切り替えに依存しない安全な構造。
 
-- [ ] **Step 5: テストが GREEN になるまで実行**
+- [x] **Step 5: テストが GREEN になるまで実行**
 
 ```bash
 pnpm test:unit -- schemas
@@ -2845,14 +2845,14 @@ pnpm build
 
 Expected: 6 ケース PASS、TS エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add src/schemas.ts tests/ts/schemas.test.ts package.json pnpm-lock.yaml
 git commit -m "feat(ts): Phase A 用 Zod スキーマ ChatCompletionsParamsSchema を追加"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/ts-schemas
