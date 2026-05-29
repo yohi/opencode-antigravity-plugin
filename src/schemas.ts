@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const MessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
-  content: z.string(),
+  content: z.string().min(1),
 });
 
 export function createChatCompletionsParamsSchema<T extends string>(model: T) {
@@ -13,8 +13,16 @@ export function createChatCompletionsParamsSchema<T extends string>(model: T) {
   });
 }
 
-export const ChatCompletionsParamsSchema = createChatCompletionsParamsSchema(
-  process.env.ANTIGRAVITY_MODEL ?? "gemini-2.5-pro",
-);
+/**
+ * Returns a schema instance based on the current OAG_MODEL environment variable.
+ * Use this getter instead of a constant to ensure environment changes are reflected.
+ */
+export function getChatCompletionsParamsSchema() {
+  return createChatCompletionsParamsSchema(
+    process.env.ANTIGRAVITY_MODEL ?? "gemini-2.5-pro",
+  );
+}
+
+export const ChatCompletionsParamsSchema = getChatCompletionsParamsSchema();
 
 export type ChatCompletionsParams = z.infer<typeof ChatCompletionsParamsSchema>;
