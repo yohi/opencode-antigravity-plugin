@@ -22,6 +22,8 @@ export function createServer(backend: ServerBackend): http.Server {
           return sendJson(res, 503, {
             status: state,
             python_restarts: backend.restartCount,
+            backend_mode: process.env.OAG_BACKEND_MODE ?? "mock",
+            model: process.env.ANTIGRAVITY_MODEL ?? "gemini-2.5-pro",
           });
         }
         return sendJson(res, 200, {
