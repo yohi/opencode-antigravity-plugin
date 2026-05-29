@@ -1,14 +1,14 @@
 import { z } from "zod";
 
-const MessageSchema = z.object({
+export const MessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
   content: z.string(),
 });
 
-export function createChatCompletionsParamsSchema(model: string) {
+export function createChatCompletionsParamsSchema<T extends string>(model: T) {
   return z.object({
     model: z.literal(model),
-    messages: z.array(MessageSchema).nonempty(),
+    messages: z.tuple([MessageSchema]).rest(MessageSchema),
     stream: z.boolean().optional(),
   });
 }
