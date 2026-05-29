@@ -91,3 +91,12 @@ def format_error(err: JsonRpcError) -> str:
         separators=(",", ":"),
         ensure_ascii=False,
     ) + "\n"
+
+
+def format_request(req_id: int | str, method: str, params: dict[str, Any] | list[Any]) -> str:
+    """Format a JSON-RPC 2.0 Request as one NDJSON line (主にテスト/Worker→外部呼び出し用)。"""
+    payload = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
+    line = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
+    if len(line.encode("utf-8")) > MAX_MESSAGE_BYTES:
+        raise ValueError(f"request exceeds {MAX_MESSAGE_BYTES} bytes")
+    return line
