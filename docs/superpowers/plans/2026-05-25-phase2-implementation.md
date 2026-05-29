@@ -1918,7 +1918,7 @@ gh pr create --draft --base feature/phase2/python-antigravity-client \
 - Modify: `backend/src/opencode_antigravity/server.py`
 - Create: `tests/python/integration/test_async_dispatch.py`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -1932,7 +1932,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: 失敗するテストを書く (`tests/python/integration/test_async_dispatch.py`)**
+- [x] **Step 2: 失敗するテストを書く (`tests/python/integration/test_async_dispatch.py`)**
 
 ```python
 import asyncio
@@ -2045,7 +2045,7 @@ class _LineCaptureWriter:
         return None
 ```
 
-- [ ] **Step 3: テスト実行で失敗を確認**
+- [x] **Step 3: テスト実行で失敗を確認**
 
 ```bash
 uv run pytest tests/python/integration/test_async_dispatch.py -v
@@ -2053,7 +2053,7 @@ uv run pytest tests/python/integration/test_async_dispatch.py -v
 
 Expected: AsyncGenerator 分岐が無いため最低 2 ケースが FAIL。
 
-- [ ] **Step 4: `server.py` の dispatch を拡張**
+- [x] **Step 4: `server.py` の dispatch を拡張**
 
 実装の要点:
 
@@ -2123,7 +2123,7 @@ else:
 
 具体的なコードは現行 `server.py` の dispatch ループに分岐を挿入する形で実装する (ファイル全体が短いので、AGENTS は読み込んで局所修正してよい)。
 
-- [ ] **Step 5: テストが GREEN になるまで実行**
+- [x] **Step 5: テストが GREEN になるまで実行**
 
 ```bash
 uv run pytest tests/python/integration/test_async_dispatch.py -v
@@ -2133,14 +2133,14 @@ uv run ruff check backend/src/opencode_antigravity/server.py tests/python/integr
 
 Expected: 全テスト PASS、ruff エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add backend/src/opencode_antigravity/server.py tests/python/integration/test_async_dispatch.py
 git commit -m "feat(python): server.py に AsyncGenerator dispatch を追加 (通常 yield→Notification, sentinel _final yield→response)"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/python-server-dispatch
@@ -2150,6 +2150,12 @@ gh pr create --draft --base feature/phase2/python-protocol-notification \
 ```
 
 `.stack-urls.md` に `- T2.4: <url>` を追記。
+
+**進捗メモ (2026-05-29):** T2.4 完了。PR #45 (Draft) 作成済み → https://github.com/yohi/opencode-antigravity-plugin/pull/45
+派生元は master (T2.2 PR #37 が master に merge 済みのため、計画書の `派生元: T2.2` の条件は実質的に充足されている)。
+T2.4 ブランチでは T2.3 (`pytest-asyncio` 追加) が未マージだったため、独立して chore コミット (bb9b00e) で `pytest-asyncio>=0.23` + `asyncio_mode=auto` + `vitest exclude .worktrees/**` を同梱した。
+T2.4 メインの feat コミットは 0acd9c3。
+次の未着手タスクは T2.5 (`handlers.chat_completions` を AsyncGenerator 化)。当ブランチには T2.1 ・ T2.3 も取り込む必要がある (下記 Task 2.5 Step 2 参照)。
 
 ---
 
