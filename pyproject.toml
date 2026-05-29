@@ -19,6 +19,7 @@ packages = ["backend/src/opencode_antigravity"]
 [tool.uv]
 dev-dependencies = [
     "pytest>=8.0.0",
+    "pytest-asyncio>=0.23",
     "ruff>=0.4.0",
     "pyyaml>=6.0",
 ]
@@ -33,3 +34,4 @@ select = ["E", "F", "I", "T20"]  # T201 = print, T203 = pprint
 [tool.pytest.ini_options]
 pythonpath = ["backend/src"]
 testpaths = ["tests/python"]
+asyncio_mode = "auto"
