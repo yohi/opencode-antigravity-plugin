@@ -49,7 +49,18 @@ class AntigravityClientBase(Protocol):
 
 
 def _coldstart_timeout_s() -> float:
-    return float(os.environ.get("OAG_AGENT_COLDSTART_TIMEOUT_MS", "10000")) / 1000.0
+    raw_val = os.environ.get("OAG_AGENT_COLDSTART_TIMEOUT_MS", "10000")
+    try:
+        val_ms = float(raw_val)
+    except ValueError as exc:
+        raise ValueError(
+            f"OAG_AGENT_COLDSTART_TIMEOUT_MS must be a numeric millisecond value, got {raw_val!r}"
+        ) from exc
+    if val_ms < 0:
+        raise ValueError(
+            f"OAG_AGENT_COLDSTART_TIMEOUT_MS must be non-negative, got {val_ms}"
+        )
+    return val_ms / 1000.0
 
 
 class MockAntigravityClient:
@@ -71,6 +82,9 @@ class MockAntigravityClient:
     async def stream_chat(
         self, messages: Sequence[ChatMessage], *, mock_options: MockOptions | None = None
     ) -> AsyncGenerator[str, None]:
+        # Validate/normalize just like live mode
+        _ = fold_messages_to_prompt(messages)
+
         self.agent_enter_attempt_count += 1
         if self.fail_next_enter:
             self.fail_next_enter = False

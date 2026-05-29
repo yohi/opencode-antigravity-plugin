@@ -49,3 +49,9 @@ def test_fold_empty_content_preserves_role_tag():
 def test_fold_unknown_role_raises(bad_role: str):
     with pytest.raises(ValueError, match="unsupported role"):
         fold_messages_to_prompt([{"role": bad_role, "content": "x"}])
+
+
+def test_fold_empty_messages_raises():
+    with pytest.raises(ValueError, match="messages list must not be empty"):
+        fold_messages_to_prompt([])
+

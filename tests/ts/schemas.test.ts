@@ -1,7 +1,45 @@
-import { describe, expect, it } from "vitest";
-import { createChatCompletionsParamsSchema } from "../../src/schemas.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { createChatCompletionsParamsSchema, getChatCompletionsParamsSchema } from "../../src/schemas.js";
 
 const schema = createChatCompletionsParamsSchema("gemini-2.5-pro");
+
+describe("getChatCompletionsParamsSchema", () => {
+  const originalEnv = process.env.ANTIGRAVITY_MODEL;
+
+  afterEach(() => {
+    process.env.ANTIGRAVITY_MODEL = originalEnv;
+  });
+
+  it("uses default model when ANTIGRAVITY_MODEL is unset", () => {
+    delete process.env.ANTIGRAVITY_MODEL;
+    const s = getChatCompletionsParamsSchema();
+    const result = s.safeParse({
+      model: "gemini-2.5-pro",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("uses specific model when ANTIGRAVITY_MODEL is set", () => {
+    process.env.ANTIGRAVITY_MODEL = "custom-model";
+    const s = getChatCompletionsParamsSchema();
+    const result = s.safeParse({
+      model: "custom-model",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("uses default model when ANTIGRAVITY_MODEL is empty string", () => {
+    process.env.ANTIGRAVITY_MODEL = "  ";
+    const s = getChatCompletionsParamsSchema();
+    const result = s.safeParse({
+      model: "gemini-2.5-pro",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    expect(result.success).toBe(true);
+  });
+});
 
 describe("ChatCompletionsParamsSchema (Phase A)", () => {
   it("accepts a valid request", () => {

@@ -14,12 +14,13 @@ export function createChatCompletionsParamsSchema<T extends string>(model: T) {
 }
 
 /**
- * Returns a schema instance based on the current OAG_MODEL environment variable.
+ * Returns a schema instance based on the current ANTIGRAVITY_MODEL environment variable.
  * Use this getter instead of a constant to ensure environment changes are reflected.
  */
 export function getChatCompletionsParamsSchema() {
+  const model = (process.env.ANTIGRAVITY_MODEL ?? "").trim();
   return createChatCompletionsParamsSchema(
-    process.env.ANTIGRAVITY_MODEL ?? "gemini-2.5-pro",
+    model || "gemini-2.5-pro",
   );
 }
 
