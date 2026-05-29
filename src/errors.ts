@@ -47,9 +47,9 @@ const SDK_ERROR_MAPPINGS: Record<number, { status: number; type: string }> = {
   [-32010]: { status: 401, type: "authentication_error" },
   [-32011]: { status: 429, type: "rate_limit_error" },
   [-32012]: { status: 400, type: "invalid_request_error" },
-  [-32013]: { status: 502, type: "bad_gateway" },
+  [-32013]: { status: 502, type: "upstream_api_error" },
   [-32014]: { status: 504, type: "timeout" },
-  [-32015]: { status: 502, type: "bad_gateway" },
+  [-32015]: { status: 502, type: "connection_refused" },
 };
 
 export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBody } {

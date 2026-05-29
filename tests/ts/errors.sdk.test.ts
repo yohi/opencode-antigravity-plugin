@@ -23,10 +23,10 @@ describe("toOpenAIError SDK mapping", () => {
     expect(body.error.message).toBe("model not found");
   });
 
-  it("maps -32013 to 502 bad_gateway", () => {
+  it("maps -32013 to 502 upstream_api_error", () => {
     const { status, body } = toOpenAIError(new BackendResponseError(-32013, "api err"));
     expect(status).toBe(502);
-    expect(body.error.type).toBe("bad_gateway");
+    expect(body.error.type).toBe("upstream_api_error");
     expect(body.error.message).toBe("api err");
   });
 
@@ -37,10 +37,17 @@ describe("toOpenAIError SDK mapping", () => {
     expect(body.error.message).toBe("timeout");
   });
 
-  it("maps -32015 to 502 bad_gateway", () => {
+  it("maps -32015 to 502 connection_refused", () => {
     const { status, body } = toOpenAIError(new BackendResponseError(-32015, "conn refused"));
     expect(status).toBe(502);
-    expect(body.error.type).toBe("bad_gateway");
+    expect(body.error.type).toBe("connection_refused");
     expect(body.error.message).toBe("conn refused");
+  });
+
+  it("falls back to 500 server_error for unmapped SDK codes", () => {
+    const { status, body } = toOpenAIError(new BackendResponseError(-32016, "unknown"));
+    expect(status).toBe(500);
+    expect(body.error.type).toBe("server_error");
+    expect(body.error.message).toBe("An internal server error occurred");
   });
 });
