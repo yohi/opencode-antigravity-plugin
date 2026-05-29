@@ -12,6 +12,8 @@ ChatMessage = Mapping[str, object]
 
 
 def fold_messages_to_prompt(messages: Sequence[ChatMessage]) -> str:
+    if not messages:
+        raise ValueError("messages list must not be empty")
     parts: list[str] = []
     for msg in messages:
         role_value = msg.get("role", "")

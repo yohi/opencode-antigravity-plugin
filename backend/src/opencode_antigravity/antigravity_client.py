@@ -155,15 +155,19 @@ class AntigravityClient:
         except Exception as exc:
             raise classify_sdk_error(exc) from exc
 
+        exc_info: tuple[
+            type[BaseException] | None, BaseException | None, TracebackType | None
+        ] = (None, None, None)
         try:
             response = await agent.chat(prompt)
             async for token in response:
                 if token:
                     yield token
         except Exception as exc:
+            exc_info = (type(exc), exc, exc.__traceback__)
             raise classify_sdk_error(exc) from exc
         finally:
-            _ = await agent_cm.__aexit__(None, None, None)
+            _ = await agent_cm.__aexit__(*exc_info)
 
     async def chat(self, messages: Sequence[ChatMessage]) -> str:
         chunks: list[str] = []

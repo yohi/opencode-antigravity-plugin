@@ -23,6 +23,7 @@ export function getChatCompletionsParamsSchema() {
   );
 }
 
+/** @deprecated Use {@link getChatCompletionsParamsSchema} instead. */
 export const ChatCompletionsParamsSchema = getChatCompletionsParamsSchema();
 
 export type ChatCompletionsParams = z.infer<typeof ChatCompletionsParamsSchema>;
