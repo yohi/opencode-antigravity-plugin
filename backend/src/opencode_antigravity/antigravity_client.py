@@ -63,6 +63,30 @@ def _coldstart_timeout_s() -> float:
     return val_ms / 1000.0
 
 
+_semaphore_cache: dict[int, tuple[int, asyncio.Semaphore]] = {}
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _semaphore_cache
+    loop_id = id(asyncio.get_running_loop())
+
+    raw_val = os.environ.get("OAG_MAX_CONCURRENT_REQUESTS", "4")
+    try:
+        limit = int(raw_val)
+    except ValueError as exc:
+        raise ValueError(
+            f"OAG_MAX_CONCURRENT_REQUESTS must be an integer, got {raw_val!r}"
+        ) from exc
+    if limit <= 0:
+        raise ValueError(
+            f"OAG_MAX_CONCURRENT_REQUESTS must be positive, got {limit}"
+        )
+
+    if loop_id not in _semaphore_cache or _semaphore_cache[loop_id][0] != limit:
+        _semaphore_cache[loop_id] = (limit, asyncio.Semaphore(limit))
+    return _semaphore_cache[loop_id][1]
+
+
 class MockAntigravityClient:
     def __init__(self, model: str) -> None:
         self.model: str = model
@@ -85,40 +109,41 @@ class MockAntigravityClient:
         # Validate/normalize just like live mode
         _ = fold_messages_to_prompt(messages)
 
-        self.agent_enter_attempt_count += 1
-        if self.fail_next_enter:
-            self.fail_next_enter = False
-            raise RuntimeError("cold-start failure")
+        async with _get_semaphore():
+            self.agent_enter_attempt_count += 1
+            if self.fail_next_enter:
+                self.fail_next_enter = False
+                raise RuntimeError("cold-start failure")
 
-        self.agent_enter_count += 1
-        self._agent_id_counter += 1
-        agent_id = self._agent_id_counter
-        self.last_two_agent_ids.append(agent_id)
-        self.last_two_agent_ids = self.last_two_agent_ids[-2:]
+            self.agent_enter_count += 1
+            self._agent_id_counter += 1
+            agent_id = self._agent_id_counter
+            self.last_two_agent_ids.append(agent_id)
+            self.last_two_agent_ids = self.last_two_agent_ids[-2:]
 
-        try:
-            last_user = ""
-            for message in reversed(messages):
-                if message.get("role") == "user":
-                    content_value = message.get("content", "")
-                    last_user = content_value if isinstance(content_value, str) else ""
-                    break
-            tokens = ["[mock] ", last_user]
-            yielded = 0
-            raise_after_value = (mock_options or {}).get("raise_after_chunk")
-            raise_after = raise_after_value if isinstance(raise_after_value, int) else None
-            raise_kind_value = (mock_options or {}).get("raise_kind", "runtime")
-            raise_kind = raise_kind_value if isinstance(raise_kind_value, str) else "runtime"
+            try:
+                last_user = ""
+                for message in reversed(messages):
+                    if message.get("role") == "user":
+                        content_value = message.get("content", "")
+                        last_user = content_value if isinstance(content_value, str) else ""
+                        break
+                tokens = ["[mock] ", last_user]
+                yielded = 0
+                raise_after_value = (mock_options or {}).get("raise_after_chunk")
+                raise_after = raise_after_value if isinstance(raise_after_value, int) else None
+                raise_kind_value = (mock_options or {}).get("raise_kind", "runtime")
+                raise_kind = raise_kind_value if isinstance(raise_kind_value, str) else "runtime"
 
-            for token in tokens:
-                if raise_after is not None and yielded >= raise_after:
-                    if raise_kind == "sdk_api":
-                        raise SdkApiError("mock injected SdkApiError")
-                    raise RuntimeError("injected by mock_options")
-                yield token
-                yielded += 1
-        finally:
-            self.agent_exit_count += 1
+                for token in tokens:
+                    if raise_after is not None and yielded >= raise_after:
+                        if raise_kind == "sdk_api":
+                            raise SdkApiError("mock injected SdkApiError")
+                        raise RuntimeError("injected by mock_options")
+                    yield token
+                    yielded += 1
+            finally:
+                self.agent_exit_count += 1
 
     async def chat(self, messages: Sequence[ChatMessage]) -> str:
         chunks: list[str] = []
@@ -149,39 +174,40 @@ class AntigravityClient:
     async def stream_chat(
         self, messages: Sequence[ChatMessage], *, mock_options: MockOptions | None = None
     ) -> AsyncGenerator[str, None]:
-        _ = mock_options
-        prompt = fold_messages_to_prompt(messages)
+        async with _get_semaphore():
+            _ = mock_options
+            prompt = fold_messages_to_prompt(messages)
 
-        google_antigravity = importlib.import_module("google.antigravity")
-        agent_type = cast(_AgentFactory, getattr(google_antigravity, "Agent"))
-        config_type = cast(
-            _LocalAgentConfigFactory, getattr(google_antigravity, "LocalAgentConfig")
-        )
+            google_antigravity = importlib.import_module("google.antigravity")
+            agent_type = cast(_AgentFactory, google_antigravity.Agent)
+            config_type = cast(_LocalAgentConfigFactory, google_antigravity.LocalAgentConfig)
 
-        agent_cm = agent_type(config_type(model=self.model, api_key=self._api_key))
+            agent_cm = agent_type(config_type(model=self.model, api_key=self._api_key))
 
-        try:
-            agent = await asyncio.wait_for(agent_cm.__aenter__(), timeout=_coldstart_timeout_s())
-        except asyncio.TimeoutError as exc:
-            raise SdkConnectionError(
-                "Agent cold-start exceeded OAG_AGENT_COLDSTART_TIMEOUT_MS"
-            ) from exc
-        except Exception as exc:
-            raise classify_sdk_error(exc) from exc
+            try:
+                agent = await asyncio.wait_for(
+                    agent_cm.__aenter__(), timeout=_coldstart_timeout_s()
+                )
+            except asyncio.TimeoutError as exc:
+                raise SdkConnectionError(
+                    "Agent cold-start exceeded OAG_AGENT_COLDSTART_TIMEOUT_MS"
+                ) from exc
+            except Exception as exc:
+                raise classify_sdk_error(exc) from exc
 
-        exc_info: tuple[
-            type[BaseException] | None, BaseException | None, TracebackType | None
-        ] = (None, None, None)
-        try:
-            response = await agent.chat(prompt)
-            async for token in response:
-                if token:
-                    yield token
-        except Exception as exc:
-            exc_info = (type(exc), exc, exc.__traceback__)
-            raise classify_sdk_error(exc) from exc
-        finally:
-            _ = await agent_cm.__aexit__(*exc_info)
+            exc_info: tuple[
+                type[BaseException] | None, BaseException | None, TracebackType | None
+            ] = (None, None, None)
+            try:
+                response = await agent.chat(prompt)
+                async for token in response:
+                    if token:
+                        yield token
+            except Exception as exc:
+                exc_info = (type(exc), exc, exc.__traceback__)
+                raise classify_sdk_error(exc) from exc
+            finally:
+                _ = await agent_cm.__aexit__(*exc_info)
 
     async def chat(self, messages: Sequence[ChatMessage]) -> str:
         chunks: list[str] = []

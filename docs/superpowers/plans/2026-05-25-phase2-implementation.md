@@ -1607,7 +1607,7 @@ gh pr create --draft --base master --title "feat(python): AntigravityClient (per
 - Create: `tests/python/integration/test_antigravity_client_concurrency.py` (受け入れ#33, #34)
 - Create: `tests/python/e2e_live/test_antigravity_client_live_smoke.py` (live マーカ付き smoke、cold-start 計測のベースラインに使用)
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -1621,7 +1621,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: 失敗するテストを書く (受け入れ#33, #34)**
+- [x] **Step 2: 失敗するテストを書く (受け入れ#33, #34)**
 
 `tests/python/integration/test_antigravity_client_concurrency.py`:
 
@@ -1755,7 +1755,7 @@ async def test_cold_start_timeout_maps_to_sdk_connection_error(monkeypatch):
         await client.stop()
 ```
 
-- [ ] **Step 3: テスト実行で失敗を確認**
+- [x] **Step 3: テスト実行で失敗を確認**
 
 ```bash
 uv run pytest tests/python/integration/test_antigravity_client_concurrency.py -v
@@ -1763,7 +1763,7 @@ uv run pytest tests/python/integration/test_antigravity_client_concurrency.py -v
 
 Expected: `OAG_MAX_CONCURRENT_REQUESTS` が未実装のため #34 が FAIL (semaphore がないので peak が 4 になる)。#33 と timeout テストは PASS する可能性あり。
 
-- [ ] **Step 4: `antigravity_client.py` に Semaphore を追加**
+- [x] **Step 4: `antigravity_client.py` に Semaphore を追加**
 
 設計書 Section 3.3.2 の規約に従い、モジュールレベルで `asyncio.Semaphore` を遅延生成し、`MockAntigravityClient` / `AntigravityClient` 双方の `stream_chat` で取得する。
 
@@ -1810,7 +1810,7 @@ async def stream_chat(self, messages, *, mock_options=None):
 > ラップする subclass は内側で `super().stream_chat()` に委譲しないこと
 > (テスト #34 の `_SlowMockClient` 参照)。
 
-- [ ] **Step 5: テストが GREEN になるまで実行**
+- [x] **Step 5: テストが GREEN になるまで実行**
 
 ```bash
 uv run pytest tests/python/integration/test_antigravity_client_concurrency.py -v
@@ -1820,7 +1820,7 @@ uv run ruff check backend/src/opencode_antigravity/antigravity_client.py tests/p
 
 Expected: 3 テスト PASS、ruff エラー 0、既存テストも全 GREEN。
 
-- [ ] **Step 6: live smoke テストを追加 (cold-start 計測のベースライン)**
+- [x] **Step 6: live smoke テストを追加 (cold-start 計測のベースライン)**
 
 `tests/python/e2e_live/test_antigravity_client_live_smoke.py`:
 
@@ -1885,7 +1885,7 @@ async def test_live_cold_start_within_budget():
         await client.stop()
 ```
 
-- [ ] **Step 7: コミット**
+- [x] **Step 7: コミット**
 
 ```bash
 git add backend/src/opencode_antigravity/antigravity_client.py \
@@ -1894,7 +1894,7 @@ git add backend/src/opencode_antigravity/antigravity_client.py \
 git commit -m "feat(python): AntigravityClient に Semaphore 並行制御 + 受け入れ#33/#34 + live smoke を追加"
 ```
 
-- [ ] **Step 8: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 8: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/python-antigravity-client-concurrency
@@ -1904,6 +1904,10 @@ gh pr create --draft --base feature/phase2/python-antigravity-client \
 ```
 
 `.stack-urls.md` に `- T2.3.1: <url>` を追記。
+
+**進捗メモ (2026-05-29):** T2.3.1 完了。PR #44 (Draft) 作成済み。
+次の未着手タスクは T2.4 (server.py AsyncGenerator dispatch)。前提条件として T2.2 の Draft PR URL (`.stack-urls.md`) が必要。
+派生元ブランチ: `feature/phase2/python-antigravity-client-concurrency` (T2.3 ブランチに依存するため、T2.3 PR #43 の merge 後に後続タスクのベースとして使用可能)。
 
 ---
 
