@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Resolve conflicts in `backend/src/opencode_antigravity/antigravity_client.py`
+## Task 1: Resolve conflicts in `backend/src/opencode_antigravity/antigravity_client.py`
 
 **Files:**
 - Modify: `backend/src/opencode_antigravity/antigravity_client.py`
