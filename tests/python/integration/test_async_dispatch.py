@@ -79,10 +79,10 @@ async def test_async_generator_handler_emits_notifications_and_final_response() 
     # 先頭 2 件は Notification (id を含まない)
     assert all("id" not in p for p in parsed[:2])
     assert parsed[0]["jsonrpc"] == "2.0"
-    assert parsed[0]["method"] == "chat.completions.chunk"
+    assert parsed[0]["method"] == "stream.method.chunk"
     assert parsed[0]["params"]["request_id"] == "req-1"
     assert parsed[0]["params"]["delta"] == {"role": "assistant", "content": ""}
-    assert parsed[1]["method"] == "chat.completions.chunk"
+    assert parsed[1]["method"] == "stream.method.chunk"
     assert parsed[1]["params"]["delta"] == {"content": "abc"}
     # 最終要素は Response (id + result)
     assert parsed[-1]["id"] == "req-1"

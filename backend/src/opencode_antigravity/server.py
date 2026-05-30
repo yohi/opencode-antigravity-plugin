@@ -262,12 +262,23 @@ async def _dispatch_async_stream(
                 break  # sentinel 以降は契約上 yield されない
             # 通常 chunk → Notification
             delta = item.get("delta", item) if isinstance(item, dict) else item
-            writer.write(
-                format_notification(
-                    "chat.completions.chunk",
+            try:
+                line = format_notification(
+                    f"{method}.chunk",
                     {"request_id": req_id, "delta": delta},
-                ).encode("utf-8")
-            )
+                )
+            except ValueError:
+                # 内部制約違反 (1MB超)。クライアント起因の引数エラーではないため
+                # Internal error (-32603) として扱い、詳細（制限値等）は露出させない。
+                writer.write(
+                    format_error(
+                        JsonRpcError(id=req_id, code=-32603, message="Internal error")
+                    ).encode("utf-8")
+                )
+                await writer.drain()
+                return
+
+            writer.write(line.encode("utf-8"))
             await writer.drain()
     except ValueError as e:
         writer.write(
