@@ -73,10 +73,14 @@ def _get_semaphore() -> asyncio.Semaphore:
     raw_val = os.environ.get("OAG_MAX_CONCURRENT_REQUESTS", "4")
     try:
         limit = int(raw_val)
-        if limit <= 0:
-            limit = 4
-    except ValueError:
-        limit = 4
+    except ValueError as exc:
+        raise ValueError(
+            f"OAG_MAX_CONCURRENT_REQUESTS must be an integer, got {raw_val!r}"
+        ) from exc
+    if limit <= 0:
+        raise ValueError(
+            f"OAG_MAX_CONCURRENT_REQUESTS must be positive, got {limit}"
+        )
 
     if loop_id not in _semaphore_cache or _semaphore_cache[loop_id][0] != limit:
         _semaphore_cache[loop_id] = (limit, asyncio.Semaphore(limit))

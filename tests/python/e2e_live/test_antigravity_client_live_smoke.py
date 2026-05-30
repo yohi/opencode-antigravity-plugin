@@ -1,6 +1,7 @@
 import os
 import statistics
 import time
+from contextlib import aclosing
 
 import pytest
 from opencode_antigravity.antigravity_client import AntigravityClient
@@ -43,8 +44,9 @@ async def test_live_cold_start_within_budget() -> None:
             t0 = time.perf_counter()
             await client.start()
             started = True
-            async for _ in client.stream_chat([{"role": "user", "content": "hi"}]):
-                break
+            async with aclosing(client.stream_chat([{"role": "user", "content": "hi"}])) as gen:
+                async for _ in gen:
+                    break
             samples_ms.append((time.perf_counter() - t0) * 1000.0)
         finally:
             if started:
