@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `backend/src/opencode_antigravity/antigravity_client.py`
 
-- [ ] **Step 1: Resolve Conflict 1 (stream_chat start)**
+- [x] **Step 1: Resolve Conflict 1 (stream_chat start)**
 Merge semaphore usage with message validation.
 
 ```python
@@ -48,7 +48,7 @@ Resolution:
                 raise RuntimeError("cold-start failure")
 ```
 
-- [ ] **Step 2: Resolve Conflict 2 (stream_chat chat loop)**
+- [x] **Step 2: Resolve Conflict 2 (stream_chat chat loop)**
 Adopt robust `exc_info` and `__aexit__` call from master.
 
 ```python
@@ -96,7 +96,7 @@ Resolution:
                 _ = await agent_cm.__aexit__(*exc_info)
 ```
 
-- [ ] **Step 3: Verify syntax**
+- [x] **Step 3: Verify syntax**
 Run: `ruff check backend/src/opencode_antigravity/antigravity_client.py`
 
 ---
@@ -106,7 +106,7 @@ Run: `ruff check backend/src/opencode_antigravity/antigravity_client.py`
 **Files:**
 - Modify: `docs/superpowers/plans/.stack-urls.md`
 
-- [ ] **Step 1: Resolve Conflict**
+- [x] **Step 1: Resolve Conflict**
 Keep the new URL from master.
 
 ```markdown
@@ -125,17 +125,17 @@ Resolution:
 
 ### Task 3: Validation and Staging
 
-- [ ] **Step 1: Run Python tests**
+- [x] **Step 1: Run Python tests**
 Run: `pytest tests/python/unit/test_antigravity_client.py`
 Expected: PASS
 
-- [ ] **Step 2: Run Concurrency tests**
+- [x] **Step 2: Run Concurrency tests**
 Run: `pytest tests/python/integration/test_antigravity_client_concurrency.py`
 Expected: PASS (Verifies semaphore is working)
 
-- [ ] **Step 3: Stage changes**
+- [x] **Step 3: Stage changes**
 Run: `git add backend/src/opencode_antigravity/antigravity_client.py docs/superpowers/plans/.stack-urls.md`
 
-- [ ] **Step 4: Check status**
+- [x] **Step 4: Check status**
 Run: `git status`
 Expected: All conflicts resolved, files staged.
