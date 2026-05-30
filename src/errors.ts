@@ -43,6 +43,15 @@ export interface OpenAIErrorBody {
   error: { type: string; message: string };
 }
 
+const SDK_ERROR_MAPPINGS: Record<number, { status: number; type: string }> = {
+  [-32010]: { status: 401, type: "authentication_error" },
+  [-32011]: { status: 429, type: "rate_limit_error" },
+  [-32012]: { status: 400, type: "invalid_request_error" },
+  [-32013]: { status: 502, type: "upstream_api_error" },
+  [-32014]: { status: 504, type: "timeout" },
+  [-32015]: { status: 502, type: "connection_refused" },
+};
+
 export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBody } {
   if (err instanceof BackendPermanentlyFailedError) {
     logger.error({ err }, "Backend permanently failed");
@@ -73,6 +82,14 @@ export function toOpenAIError(err: Error): { status: number; body: OpenAIErrorBo
       return {
         status: 400,
         body: { error: { type: "invalid_request_error", message: err.rawMessage } },
+      };
+    }
+    const sdkMapping = SDK_ERROR_MAPPINGS[err.code];
+    if (sdkMapping) {
+      logger.warn({ err }, "Backend SDK error");
+      return {
+        status: sdkMapping.status,
+        body: { error: { type: sdkMapping.type, message: err.rawMessage } },
       };
     }
     logger.error({ err }, "Backend internal error");

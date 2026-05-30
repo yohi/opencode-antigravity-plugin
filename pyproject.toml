@@ -10,6 +10,9 @@ dependencies = [
     "pydantic>=2.6.0",
 ]
 
+[project.optional-dependencies]
+live = ["google-antigravity>=0.1"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["backend/src/opencode_antigravity"]
 
@@ -35,3 +38,6 @@ select = ["E", "F", "I", "T20"]  # T201 = print, T203 = pprint
 pythonpath = ["backend/src"]
 testpaths = ["tests/python"]
 asyncio_mode = "auto"
+markers = [
+    "live: tests requiring GEMINI_API_KEY",
+]
