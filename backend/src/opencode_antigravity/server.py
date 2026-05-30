@@ -343,7 +343,7 @@ class _StdoutWriter:
         try:
             self._stream.flush()
         except Exception:  # noqa: BLE001
-            pass
+            logger.exception("Error flushing stream on close")
 
 
 async def async_main() -> None:
