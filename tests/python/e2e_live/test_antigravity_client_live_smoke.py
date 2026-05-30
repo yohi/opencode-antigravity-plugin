@@ -33,22 +33,25 @@ async def test_live_cold_start_within_budget() -> None:
     if not api_key:
         pytest.skip("GEMINI_API_KEY not set")
     budget_ms = float(os.environ.get("OAG_AGENT_COLDSTART_BUDGET_MS", "5000"))
-    client = AntigravityClient(
-        model=os.environ.get("ANTIGRAVITY_MODEL", "gemini-2.5-pro"),
-        api_key=api_key,
-    )
-    await client.start()
-    try:
-        samples_ms: list[float] = []
-        for _ in range(10):
+    model = os.environ.get("ANTIGRAVITY_MODEL", "gemini-2.5-pro")
+
+    samples_ms: list[float] = []
+    for _ in range(10):
+        client = AntigravityClient(model=model, api_key=api_key)
+        started = False
+        try:
             t0 = time.perf_counter()
+            await client.start()
+            started = True
             async for _ in client.stream_chat([{"role": "user", "content": "hi"}]):
                 break
             samples_ms.append((time.perf_counter() - t0) * 1000.0)
-        median_ms = statistics.median(samples_ms)
-        assert median_ms < budget_ms, (
-            f"TTFB median {median_ms:.1f}ms exceeds budget {budget_ms:.0f}ms; "
-            f"samples={[round(sample) for sample in samples_ms]}"
-        )
-    finally:
-        await client.stop()
+        finally:
+            if started:
+                await client.stop()
+
+    median_ms = statistics.median(samples_ms)
+    assert median_ms < budget_ms, (
+        f"TTFB median {median_ms:.1f}ms exceeds budget {budget_ms:.0f}ms; "
+        f"samples={[round(sample) for sample in samples_ms]}"
+    )

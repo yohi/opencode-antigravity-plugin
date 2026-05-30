@@ -63,16 +63,24 @@ def _coldstart_timeout_s() -> float:
     return val_ms / 1000.0
 
 
-_semaphore_cache: tuple[int, asyncio.Semaphore] | None = None
+_semaphore_cache: dict[int, tuple[int, asyncio.Semaphore]] = {}
 
 
 def _get_semaphore() -> asyncio.Semaphore:
     global _semaphore_cache
+    loop_id = id(asyncio.get_running_loop())
 
-    limit = int(os.environ.get("OAG_MAX_CONCURRENT_REQUESTS", "4"))
-    if _semaphore_cache is None or _semaphore_cache[0] != limit:
-        _semaphore_cache = (limit, asyncio.Semaphore(limit))
-    return _semaphore_cache[1]
+    raw_val = os.environ.get("OAG_MAX_CONCURRENT_REQUESTS", "4")
+    try:
+        limit = int(raw_val)
+        if limit <= 0:
+            limit = 4
+    except ValueError:
+        limit = 4
+
+    if loop_id not in _semaphore_cache or _semaphore_cache[loop_id][0] != limit:
+        _semaphore_cache[loop_id] = (limit, asyncio.Semaphore(limit))
+    return _semaphore_cache[loop_id][1]
 
 
 class MockAntigravityClient:
@@ -167,10 +175,8 @@ class AntigravityClient:
             prompt = fold_messages_to_prompt(messages)
 
             google_antigravity = importlib.import_module("google.antigravity")
-            agent_type = cast(_AgentFactory, getattr(google_antigravity, "Agent"))
-            config_type = cast(
-                _LocalAgentConfigFactory, getattr(google_antigravity, "LocalAgentConfig")
-            )
+            agent_type = cast(_AgentFactory, google_antigravity.Agent)
+            config_type = cast(_LocalAgentConfigFactory, google_antigravity.LocalAgentConfig)
 
             agent_cm = agent_type(config_type(model=self.model, api_key=self._api_key))
 

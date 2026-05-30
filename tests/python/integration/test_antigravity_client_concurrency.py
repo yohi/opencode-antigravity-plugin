@@ -75,36 +75,42 @@ async def test_concurrent_requests_respect_semaphore(monkeypatch: pytest.MonkeyP
 
     assert results == [["[mock] ", f"msg{i}"] for i in range(4)]
     assert client.peak_active_enter <= 2, f"semaphore breached: peak={client.peak_active_enter}"
-    assert elapsed >= 0.4 - 0.05
+    assert elapsed >= (2 * client.enter_sleep_s) - 0.05
 
 
 @pytest.mark.asyncio
 async def test_cold_start_timeout_maps_to_sdk_connection_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from opencode_antigravity.antigravity_client import _coldstart_timeout_s
+    from opencode_antigravity.antigravity_client import AntigravityClient
     from opencode_antigravity.errors import SdkConnectionError
 
-    monkeypatch.setenv("OAG_AGENT_COLDSTART_TIMEOUT_MS", "50")
+    monkeypatch.setenv("OAG_AGENT_COLDSTART_TIMEOUT_MS", "10")
 
-    class _NeverEnterClient(MockAntigravityClient):
-        async def stream_chat(
-            self, messages: Sequence[ChatMessage], *, mock_options: MockOptions | None = None
-        ) -> AsyncGenerator[str, None]:
-            _ = messages
-            _ = mock_options
-            try:
-                await asyncio.wait_for(asyncio.sleep(1.0), timeout=_coldstart_timeout_s())
-            except asyncio.TimeoutError as exc:
-                raise SdkConnectionError(
-                    "Agent cold-start exceeded OAG_AGENT_COLDSTART_TIMEOUT_MS"
-                ) from exc
-            yield "unreachable"
+    class _MockAgentCM:
+        async def __aenter__(self) -> object:
+            await asyncio.sleep(0.2)
+            return None
 
-    client = _NeverEnterClient(model="gemini-2.5-pro")
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "opencode_antigravity.antigravity_client.importlib.import_module",
+        lambda _: type(
+            "module",
+            (),
+            {
+                "Agent": lambda config: _MockAgentCM(),
+                "LocalAgentConfig": lambda **kwargs: None,
+            },
+        ),
+    )
+
+    client = AntigravityClient(model="test", api_key="test")
     await client.start()
     try:
-        with pytest.raises(SdkConnectionError):
+        with pytest.raises(SdkConnectionError, match="Agent cold-start exceeded"):
             async for _ in client.stream_chat([{"role": "user", "content": "x"}]):
                 pass
     finally:

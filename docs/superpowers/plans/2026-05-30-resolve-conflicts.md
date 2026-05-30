@@ -101,7 +101,7 @@ Run: `ruff check backend/src/opencode_antigravity/antigravity_client.py`
 
 ---
 
-### Task 2: Resolve conflicts in `docs/superpowers/plans/.stack-urls.md`
+## Task 2: Resolve conflicts in `docs/superpowers/plans/.stack-urls.md`
 
 **Files:**
 - Modify: `docs/superpowers/plans/.stack-urls.md`
