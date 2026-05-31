@@ -72,6 +72,6 @@ export interface ChatCompletionChunk {
 }
 
 export interface ChatCompletionsChunkNotificationParams {
-  request_id: string;
+  request_id: JsonRpcId;
   delta: ChatCompletionChunkDelta;
 }
