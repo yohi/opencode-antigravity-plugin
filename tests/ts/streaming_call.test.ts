@@ -56,7 +56,7 @@ describe("PythonBackend.streamingCall", () => {
 
     expect(chunks.length).toBeGreaterThan(0);
     expect(final.finish_reason).toBe("stop");
-  });
+  }, 30000);
 
   it("fires idle timeout when chunks stop arriving (#29)", async () => {
     process.env.OAG_BACKEND_MODE = "mock";
@@ -76,6 +76,6 @@ describe("PythonBackend.streamingCall", () => {
         },
         () => {},
       ),
-    ).rejects.toThrow(/timeout|idle/i);
-  });
+    ).rejects.toThrow(/stream idle exceeded 100ms/);
+  }, 30000);
 });

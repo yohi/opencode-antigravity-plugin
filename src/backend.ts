@@ -17,6 +17,11 @@ export interface PythonBackendOptions {
   moduleName: string;
   cwd: string;
   healthTimeoutMs: number;
+  /**
+   * JSON-RPC call timeout in milliseconds.
+   * NOTE: Currently only applies to unary `call()`. `streamingCall()` uses
+   * `OAG_REQUEST_TIMEOUT_MS` environment variable (default 60s) instead.
+   */
   callTimeoutMs: number;
   maxRestarts: number;
   backoffMs: number[]; // length === maxRestarts
