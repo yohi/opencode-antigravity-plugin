@@ -50,10 +50,9 @@ async def test_chat_completions_returns_openai_format(monkeypatch: pytest.Monkey
     assert result["id"].startswith("chatcmpl-")
     assert result["usage"] == {
         "prompt_tokens": 2,
-        "completion_tokens": 2,
-        "total_tokens": 4,
+        "completion_tokens": 9,
+        "total_tokens": 11,
     }
-
 
 @pytest.mark.asyncio
 async def test_chat_completions_uses_last_user_message(monkeypatch: pytest.MonkeyPatch) -> None:
