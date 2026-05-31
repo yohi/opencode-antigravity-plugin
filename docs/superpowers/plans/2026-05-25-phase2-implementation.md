@@ -3189,8 +3189,9 @@ gh pr create --draft --base master \
 
 - Modify: `src/backend.ts`
 - Create: `tests/ts/streaming_call.test.ts`
+- Modify: `package.json` (integration test script includes streaming integration test; unit script excludes it)
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -3204,7 +3205,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: 失敗するテストを書く (受け入れ#28, #29)**
+- [x] **Step 2: 失敗するテストを書く (受け入れ#28, #29)**
 
 `tests/ts/streaming_call.test.ts`:
 
@@ -3279,7 +3280,7 @@ describe("PythonBackend.streamingCall", () => {
 });
 ```
 
-- [ ] **Step 3: Mock 側に初期遅延サポートを追加**
+- [x] **Step 3: Mock 側に初期遅延サポートを追加**
 
 `MockAntigravityClient` (T2.3 で実装済み) に `OAG_MOCK_INITIAL_DELAY_MS` の対応を追加する必要がある。本ブランチからの追加変更として `antigravity_client.py` の `MockAntigravityClient.stream_chat` で:
 
@@ -3292,7 +3293,7 @@ if initial_delay > 0:
 
 を入れる (テスト#29 のため)。
 
-- [ ] **Step 4: `src/backend.ts` に `streamingCall` ラッパーを追加**
+- [x] **Step 4: `src/backend.ts` に `streamingCall` ラッパーを追加**
 
 ```ts
 public streamingCall<T>(
@@ -3305,16 +3306,17 @@ public streamingCall<T>(
 }
 ```
 
-- [ ] **Step 5: テストが GREEN になるまで実行**
+- [x] **Step 5: テストが GREEN になるまで実行**
 
 ```bash
-pnpm test:integration -- streaming_call
+uv run pnpm exec vitest run tests/ts/streaming_call.test.ts --passWithNoTests
+pnpm test:integration
 pnpm build
 ```
 
 Expected: 2 ケース PASS、TS エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add src/backend.ts \
@@ -3323,7 +3325,7 @@ git add src/backend.ts \
 git commit -m "feat(ts): backend に streamingCall を公開 (受け入れ#28, #29) + mock 初期遅延"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/ts-backend
@@ -3333,6 +3335,9 @@ gh pr create --draft --base feature/phase2/ts-jsonrpc-streaming \
 ```
 
 `.stack-urls.md` に `- T3.4: <url>` を追記。
+
+**進捗メモ (2026-05-31):** T3.4 完了。PR #49 (Draft) 作成済み → https://github.com/yohi/opencode-antigravity-plugin/pull/49
+`pnpm test:integration -- streaming_call` は新規テストを拾わないため、RED/GREEN は `uv run pnpm exec vitest run tests/ts/streaming_call.test.ts --passWithNoTests` で確認し、`package.json` の `test:integration` に `tests/ts/streaming_call.test.ts` を追加した。`test:unit` からは integration 専用テストとして除外した。
 
 ---
 
