@@ -2,12 +2,12 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { NotImplementedError, ProtocolError, toOpenAIError } from "./errors.js";
 import type { PythonBackend } from "./backend.js";
-import { getChatCompletionsParamsSchema } from "./schemas.js";
+import { getChatCompletionsParamsSchema, type ChatCompletionsParams } from "./schemas.js";
 import type { ChatCompletionChunkDelta, OpenAIChatRequest } from "./types.js";
 
 const MAX_BODY_BYTES = 1 * 1024 * 1024; // 1 MiB
 
-type StreamingFinal = { finish_reason: string; usage: object };
+type StreamingFinal = { finish_reason: string; usage: Record<string, unknown> };
 type ServerBackend = Pick<PythonBackend, "call" | "currentState" | "restartCount"> &
   Partial<Pick<PythonBackend, "streamingCall">>;
 
@@ -47,10 +47,18 @@ export function createServer(backend: ServerBackend): http.Server {
       if (req.method === "POST" && urlPath === "/v1/chat/completions") {
         try {
           const body = await readJson<OpenAIChatRequest>(req);
-          if (body.stream === true) {
-            return await handleStreamingChatCompletion(res, backend, body, requestId);
+          const parsed = getChatCompletionsParamsSchema().safeParse(body);
+          if (!parsed.success) {
+            return sendJson(res, 400, {
+              error: { type: "invalid_request_error", message: parsed.error.message },
+            });
           }
-          const result = await backend.call("chat.completions", body);
+          const params = parsed.data;
+
+          if (params.stream === true) {
+            return await handleStreamingChatCompletion(res, backend, params, requestId);
+          }
+          const result = await backend.call("chat.completions", params);
           return sendJson(res, 200, result);
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err));
@@ -75,20 +83,14 @@ export function createServer(backend: ServerBackend): http.Server {
 async function handleStreamingChatCompletion(
   res: ServerResponse,
   backend: ServerBackend,
-  body: OpenAIChatRequest,
+  params: ChatCompletionsParams,
   requestId: string,
 ): Promise<void> {
-  const parsed = getChatCompletionsParamsSchema().safeParse(body);
-  if (!parsed.success) {
-    return sendJson(res, 400, {
-      error: { type: "invalid_request_error", message: parsed.error.message },
-    });
-  }
   if (!backend.streamingCall) {
     throw new NotImplementedError("streaming is not supported by backend");
   }
 
-  const model = parsed.data.model;
+  const model = params.model;
   const created = Math.floor(Date.now() / 1000);
   const streamId = `chatcmpl-${requestId}`;
 
@@ -101,17 +103,16 @@ async function handleStreamingChatCompletion(
   try {
     const finalMeta = await backend.streamingCall<StreamingFinal>(
       "chat.completions",
-      parsed.data,
+      params,
       (delta) => writeSseChunk(res, streamId, model, created, normalizeDelta(delta), null),
     );
-    writeSseChunk(res, streamId, model, created, {}, finalMeta.finish_reason);
+    writeSseChunk(res, streamId, model, created, {}, finalMeta.finish_reason, finalMeta.usage);
     writeSseDone(res);
     endResponse(res);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     const mapped = toOpenAIError(error);
     writeSseData(res, { error: mapped.body.error });
-    writeSseDone(res);
     endResponse(res);
   }
 }
@@ -129,6 +130,7 @@ function writeSseChunk(
   created: number,
   delta: ChatCompletionChunkDelta,
   finishReason: string | null,
+  usage?: Record<string, unknown>,
 ): void {
   writeSseData(res, {
     id,
@@ -136,6 +138,7 @@ function writeSseChunk(
     created,
     model,
     choices: [{ index: 0, delta, finish_reason: finishReason }],
+    ...(usage ? { usage } : {}),
   });
 }
 
