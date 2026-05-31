@@ -48,19 +48,23 @@ class _Writer(Protocol):
     def close(self) -> None: ...
 
 
+def apply_test_handlers(handlers: dict[str, Handler]) -> None:
+    """環境変数に応じてテスト用ハンドラを注入する。"""
+    if os.environ.get("OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS", "").lower() == "true":
+
+        def _crash_handler(_params: dict[str, Any]) -> dict[str, Any]:
+            raise RuntimeError("simulated crash")
+
+        handlers["__crash__"] = _crash_handler
+
+
 def _default_handlers() -> dict[str, Handler]:
     handlers: dict[str, Handler] = {
         "health": health,
         "echo": echo,
         "chat.completions": chat_completions,
     }
-
-    if os.environ.get("OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS", "").lower() == "true":
-        def _crash_handler(_params: dict[str, Any]) -> dict[str, Any]:
-            raise RuntimeError("simulated crash")
-
-        handlers["__crash__"] = _crash_handler
-
+    apply_test_handlers(handlers)
     return handlers
 
 
@@ -318,7 +322,7 @@ async def _dispatch_async_stream(
     await writer.drain()
 
 
-class _StdoutWriter:
+class StdoutWriter:
     """sync stdout writer (write + flush) を asyncio.StreamWriter 互換の形で提供する。
 
     サブプロセスの ``stdout=PIPE`` 経由で NDJSON を 1 行ずつ読ませるため、
@@ -362,7 +366,7 @@ async def async_main() -> None:
     await loop.connect_read_pipe(lambda: protocol, sys.stdin)
 
     # stdout は sync ラッパーを使う (subprocess.PIPE 経由での即時 flush を保証)。
-    writer = _StdoutWriter()
+    writer = StdoutWriter()
 
     try:
         await run(reader=reader, writer=writer)

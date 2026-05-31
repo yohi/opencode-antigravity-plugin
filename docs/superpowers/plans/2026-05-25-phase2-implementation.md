@@ -2520,7 +2520,7 @@ gh pr create --draft --base master \
 - Modify: `backend/src/opencode_antigravity/__main__.py`
 - Create: `tests/python/unit/test_main_env_validation.py`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -2534,7 +2534,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: 失敗するテストを書く**
+- [x] **Step 2: 失敗するテストを書く**
 
 `tests/python/unit/test_main_env_validation.py`:
 
@@ -2566,7 +2566,7 @@ def test_mock_mode_does_not_require_api_key():
     assert proc.returncode == 0
 ```
 
-- [ ] **Step 3: テスト実行で失敗を確認**
+- [x] **Step 3: テスト実行で失敗を確認**
 
 ```bash
 uv run pytest tests/python/unit/test_main_env_validation.py -v
@@ -2574,7 +2574,7 @@ uv run pytest tests/python/unit/test_main_env_validation.py -v
 
 Expected: 検証ロジックがまだ無いため FAIL。
 
-- [ ] **Step 4: `__main__.py` を更新**
+- [x] **Step 4: `__main__.py` を更新**
 
 要点:
 
@@ -2591,7 +2591,7 @@ Expected: 検証ロジックがまだ無いため FAIL。
 - `antigravity_client.create_client()` でクライアント生成、`server.run()` 開始前に `await client.start()`、終了時 `await client.stop()`
 - ハンドラの `chat_completions` には `functools.partial(chat_completions, client=client)` 形式で注入する (`server.py` のハンドラ辞書を組み立てる箇所で適用)
 
-- [ ] **Step 5: テストが GREEN になるまで実行**
+- [x] **Step 5: テストが GREEN になるまで実行**
 
 ```bash
 uv run pytest tests/python/unit/test_main_env_validation.py -v
@@ -2601,14 +2601,14 @@ uv run ruff check backend/src/opencode_antigravity/__main__.py tests/python/unit
 
 Expected: 全 PASS、ruff エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add backend/src/opencode_antigravity/__main__.py tests/python/unit/test_main_env_validation.py
 git commit -m "feat(python): __main__ で OAG_BACKEND_MODE / GEMINI_API_KEY を検証してクライアント注入"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/python-main-env
@@ -2618,6 +2618,9 @@ gh pr create --draft --base feature/phase2/python-handlers-streaming \
 ```
 
 `.stack-urls.md` に `- T2.6: <url>` を追記。
+
+**進捗メモ (2026-05-31):** T2.6 完了。PR #47 (Draft) 作成済み → https://github.com/yohi/opencode-antigravity-plugin/pull/47
+派生元は T2.5 PR #46 (`feature/phase2/python-handlers-streaming`)。
 
 ---
 
