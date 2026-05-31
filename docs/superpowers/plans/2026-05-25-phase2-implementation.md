@@ -3350,8 +3350,9 @@ gh pr create --draft --base feature/phase2/ts-jsonrpc-streaming \
 **Files:**
 
 - Modify: `src/server.ts`
+- Modify: `tests/ts/integration.test.ts`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -3365,7 +3366,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: T3.2 (errors マッピング) と T3.1.5 (Zod schemas) を取り込む**
+- [x] **Step 2: T3.2 (errors マッピング) と T3.1.5 (Zod schemas) を取り込む**
 
 両方とも master にマージ済みなら自動で含まれる。未マージなら:
 
@@ -3375,7 +3376,7 @@ git merge --no-ff origin/feature/phase2/ts-errors -m "chore: merge T3.2 (errors 
 git merge --no-ff origin/feature/phase2/ts-schemas -m "chore: merge T3.1.5 (Phase A Zod schemas)"
 ```
 
-- [ ] **Step 3: `src/server.ts` を更新 (設計書 4.1.1 / 4.3.1 に準拠)**
+- [x] **Step 3: `src/server.ts` を更新 (設計書 4.1.1 / 4.3.1 に準拠)**
 
 要点:
 
@@ -3452,7 +3453,7 @@ const result = await backend.call("chat.completions", body);
 return sendJson(res, 200, result);
 ```
 
-- [ ] **Step 4: ローカル smoke テスト (curl で SSE 取得)**
+- [x] **Step 4: ローカル smoke テスト (curl で SSE 取得)**
 
 ```bash
 pnpm build
@@ -3468,7 +3469,7 @@ kill $SERVER_PID
 
 Expected: `data: {"id":...}` で始まる行と `data: [DONE]` が出力される。
 
-- [ ] **Step 5: 既存 E2E + 統合 + unit を回す**
+- [x] **Step 5: 既存 E2E + 統合 + unit を回す**
 
 ```bash
 pnpm test:unit
@@ -3479,14 +3480,14 @@ pnpm build
 
 Expected: 全 PASS、TS エラー 0。
 
-- [ ] **Step 6: コミット**
+- [x] **Step 6: コミット**
 
 ```bash
 git add src/server.ts
 git commit -m "feat(ts): server.ts に stream:true 用 SSE 中継を実装"
 ```
 
-- [ ] **Step 7: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 7: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/ts-server-sse
@@ -3496,6 +3497,9 @@ gh pr create --draft --base feature/phase2/ts-backend \
 ```
 
 `.stack-urls.md` に `- T3.5: <url>` を追記。
+
+**進捗メモ (2026-05-31):** T3.5 完了。PR #50 (Draft) 作成済み → https://github.com/yohi/opencode-antigravity-plugin/pull/50
+RED: `pnpm test:e2e` で stream:true が 501 のため失敗。GREEN: `pnpm test:e2e` で 4 tests passed。smoke: `PORT=11436 ... node dist/src/index.js` + `curl -N` で SSE chunk と `[DONE]` を確認。検証: devcontainer は `Dev container not found`、host `pnpm verify` は Python 80 passed / 2 skipped、TS unit 55 passed、integration 7 passed、E2E 4 passed。
 
 ---
 
