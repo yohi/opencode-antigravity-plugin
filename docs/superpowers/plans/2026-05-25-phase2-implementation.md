@@ -2165,7 +2165,7 @@ T2.4 メインの feat コミットは 0acd9c3。
 
 ### Task 2.5: `handlers.py` `chat_completions` をストリーミング化
 
-**派生元ブランチ:** `feature/phase2/python-server-dispatch` (T2.4)
+**派生元ブランチ:** `feature/phase2/python-server-dispatch` (T2.4) — 実行時は T2.4 が master にマージ済みのため `origin/master` へスタックを畳んで派生
 **実行モード:** 直列必須 — Wait for T2.4 の Draft PR URL。**かつ、T2.1 と T2.3 が master にマージされるか、当ブランチに事前 merge されていること** を前提とする (3 つの依存を集約するため)
 **前提条件:**
 
@@ -2177,21 +2177,21 @@ T2.4 メインの feat コミットは 0acd9c3。
 - Modify: `backend/src/opencode_antigravity/handlers.py`
 - Create: `tests/python/unit/test_chat_completions_streaming.py`
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
-git fetch origin feature/phase2/python-server-dispatch --no-tags
-git switch -c feature/phase2/python-handlers-streaming origin/feature/phase2/python-server-dispatch
+git fetch origin master --no-tags
+git switch -c feature/phase2/python-handlers-streaming origin/master
 
-EXPECTED_BASE="feature/phase2/python-server-dispatch"
+EXPECTED_BASE="master"
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
   || { echo "ERROR: 派生元ブランチが ${EXPECTED_BASE} ではありません。"; exit 1; }
 echo "OK"
 ```
 
-- [ ] **Step 2: T2.1 (errors) と T2.3 (antigravity_client) を取り込む**
+- [x] **Step 2: T2.1 (errors) と T2.3 (antigravity_client) を取り込む**
 
 両方とも master にマージされていればこのブランチにも自動的に存在する (T2.4 が master をベースとした T2.2 を経由しているため)。未マージなら以下を実行する:
 
@@ -2201,7 +2201,7 @@ git merge --no-ff origin/feature/phase2/python-errors -m "chore: merge T2.1 (err
 git merge --no-ff origin/feature/phase2/python-antigravity-client -m "chore: merge T2.3 (antigravity_client)"
 ```
 
-- [ ] **Step 3: 失敗するテストを書く (受け入れ#23, #24)**
+- [x] **Step 3: 失敗するテストを書く (受け入れ#23, #24)**
 
 `tests/python/unit/test_chat_completions_streaming.py`:
 
@@ -2324,7 +2324,7 @@ async def test_chat_completions_aggregate_cap_raises_sdk_api_error(monkeypatch):
         await client.stop()
 ```
 
-- [ ] **Step 4: テスト実行で失敗を確認**
+- [x] **Step 4: テスト実行で失敗を確認**
 
 ```bash
 uv run pytest tests/python/unit/test_chat_completions_streaming.py -v
@@ -2332,7 +2332,7 @@ uv run pytest tests/python/unit/test_chat_completions_streaming.py -v
 
 Expected: 既存 `chat_completions` が echo 実装のため FAIL。
 
-- [ ] **Step 5: `handlers.py` を更新**
+- [x] **Step 5: `handlers.py` を更新**
 
 要点:
 
@@ -2470,7 +2470,7 @@ def _new_chatcmpl_id() -> str:
     return f"chatcmpl-{uuid.uuid4().hex[:24]}"
 ```
 
-- [ ] **Step 6: テストが GREEN になるまで実行**
+- [x] **Step 6: テストが GREEN になるまで実行**
 
 ```bash
 uv run pytest tests/python/unit/test_chat_completions_streaming.py -v
@@ -2480,11 +2480,11 @@ uv run ruff check backend/src/opencode_antigravity/handlers.py tests/python/unit
 
 Expected: 全 PASS、ruff エラー 0。
 
-- [ ] **Step 7: Phase 1 既存 test #7 (chat.completions echo) の期待値を更新**
+- [x] **Step 7: Phase 1 既存 test #7 (chat.completions echo) の期待値を更新**
 
 `[echo] hello` → `[mock] hello` に変わるため、`tests/python` 配下の既存テストを必要に応じて修正する。
 
-- [ ] **Step 8: コミット**
+- [x] **Step 8: コミット**
 
 ```bash
 git add backend/src/opencode_antigravity/handlers.py \
@@ -2493,16 +2493,19 @@ git add backend/src/opencode_antigravity/handlers.py \
 git commit -m "feat(python): chat_completions を AsyncGenerator 化 (受け入れ#23, #24)"
 ```
 
-- [ ] **Step 9: プッシュと Draft PR 作成、URL を記録**
+- [x] **Step 9: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/python-handlers-streaming
-gh pr create --draft --base feature/phase2/python-server-dispatch \
+gh pr create --draft --base master \
   --title "feat(python): chat_completions ストリーミング (受け入れ#23, #24)" \
   --body "Phase 2 設計 Section 4.2 / 4.3 を実装。stream:true で AsyncGenerator、stream:false で集約。"
 ```
 
 `.stack-urls.md` に `- T2.5: <url>` を追記。
+
+**進捗メモ (2026-05-31):** T2.5 完了。PR #46 (Draft) 作成済み → https://github.com/yohi/opencode-antigravity-plugin/pull/46
+派生元は master (T2.4 PR #45 が master に merge 済みのため、計画書の `派生元: T2.4` のスタックを `origin/master` に畳んだ)。
 
 ---
 
