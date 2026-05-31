@@ -17,6 +17,11 @@ export interface PythonBackendOptions {
   moduleName: string;
   cwd: string;
   healthTimeoutMs: number;
+  /**
+   * JSON-RPC call timeout in milliseconds.
+   * NOTE: Currently only applies to unary `call()`. `streamingCall()` uses
+   * `OAG_REQUEST_TIMEOUT_MS` environment variable (default 60s) instead.
+   */
   callTimeoutMs: number;
   maxRestarts: number;
   backoffMs: number[]; // length === maxRestarts
@@ -92,6 +97,24 @@ export class PythonBackend extends EventEmitter {
       throw new BackendCrashedError(`backend not ready (state=${this.state})`);
     }
     return this.client.call(method, params, { timeoutMs: this.opts.callTimeoutMs });
+  }
+
+  async streamingCall<T = { finish_reason: string; usage: object }>(
+    method: string,
+    params: unknown,
+    onChunk: (delta: unknown) => void,
+  ): Promise<T> {
+    if (this.state === "permanently_failed") {
+      throw new BackendPermanentlyFailedError();
+    }
+    if (this.state === "restarting" || this.state === "starting") {
+      // design §7.3: キューイングせず即座に reject (HTTP 層が 503 へ変換)
+      throw new BackendCrashedError(`backend ${this.state}, retry later`);
+    }
+    if (this.state !== "ready" || this.client === null) {
+      throw new BackendCrashedError(`backend not ready (state=${this.state})`);
+    }
+    return this.client.streamingCall<T>(method, params, onChunk);
   }
 
   async stop(): Promise<void> {
