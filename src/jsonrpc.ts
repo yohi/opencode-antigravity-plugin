@@ -46,6 +46,7 @@ interface PendingEntry {
   reject: (err: Error) => void;
   timeoutHandle: NodeJS.Timeout;
   idleTimeoutHandle?: NodeJS.Timeout;
+  idleTimeoutMs?: number;
   onChunk?: (delta: unknown) => void;
 }
 
@@ -135,20 +136,11 @@ export class JsonRpcClient {
         reject(new BackendTimeoutError(`call timed out after ${requestTimeoutMs}ms`));
       }, requestTimeoutMs);
 
-      const idleTimeoutHandle = setTimeout(() => {
-        const entry = this.pending.get(id);
-        this.pending.delete(id);
-        if (entry) {
-          clearTimeout(entry.timeoutHandle);
-        }
-        reject(new BackendTimeoutError(`stream idle exceeded ${idleTimeoutMs}ms`));
-      }, idleTimeoutMs);
-
       this.pending.set(id, {
         resolve: (result) => resolve(result as T),
         reject,
         timeoutHandle,
-        idleTimeoutHandle,
+        idleTimeoutMs,
         onChunk,
       });
 
@@ -156,7 +148,6 @@ export class JsonRpcClient {
         this.opts.write(line);
       } catch (err) {
         clearTimeout(timeoutHandle);
-        clearTimeout(idleTimeoutHandle);
         this.pending.delete(id);
         reject(err instanceof Error ? err : new Error(String(err)));
       }
@@ -194,7 +185,14 @@ export class JsonRpcClient {
       return;
     }
 
-    const entry = this.pending.get(responseId);
+    let entry = this.pending.get(responseId);
+    if (!entry && typeof responseId === "string") {
+      const numId = Number(responseId);
+      if (!Number.isNaN(numId)) {
+        entry = this.pending.get(numId);
+      }
+    }
+
     if (!entry) {
       this.opts.warn?.(`unknown id from backend: ${String(responseId)} (already cleaned up)`);
       return;
@@ -251,32 +249,60 @@ export class JsonRpcClient {
     }
 
     const params = msg.params as Record<string, unknown>;
-    const requestId = params.request_id;
+    const requestId = params.request_id as JsonRpcId;
     if (typeof requestId !== "string" && typeof requestId !== "number") {
       this.opts.warn?.(`jsonrpc: malformed notification id for ${msg.method}`);
       return;
     }
 
-    const entry = this.pending.get(requestId);
-    if (!entry?.onChunk) {
+    let entry = this.pending.get(requestId);
+    if (!entry && typeof requestId === "string") {
+      const numId = Number(requestId);
+      if (!Number.isNaN(numId)) {
+        entry = this.pending.get(numId);
+      }
+    }
+
+    if (!entry) {
       this.opts.warn?.(`jsonrpc: unknown notification id: ${String(requestId)}`);
       return;
     }
+    if (!entry.onChunk) {
+      this.opts.warn?.(
+        `jsonrpc: received streaming chunk for non-streaming request: ${String(requestId)}`,
+      );
+      return;
+    }
 
-    entry.onChunk(params.delta);
+    try {
+      entry.onChunk(params.delta);
+    } catch (err) {
+      this.pending.delete(requestId);
+      clearTimeout(entry.timeoutHandle);
+      if (entry.idleTimeoutHandle) {
+        clearTimeout(entry.idleTimeoutHandle);
+      }
+      const error = err instanceof Error ? err : new Error(String(err));
+      entry.reject(error);
+      this.opts.warn?.(
+        `jsonrpc: onChunk callback threw error for id ${String(requestId)}: ${error.message}`,
+      );
+      return;
+    }
+
     this.armIdleTimer(requestId, entry);
   }
 
   private armIdleTimer(id: JsonRpcId, entry: PendingEntry): void {
-    if (!entry.idleTimeoutHandle) {
+    const idleTimeoutMs = entry.idleTimeoutMs;
+    if (idleTimeoutMs === undefined) {
       return;
     }
 
-    const idleTimeoutMs = timeoutMsFromEnv(
-      "OAG_STREAM_IDLE_TIMEOUT_MS",
-      DEFAULT_STREAM_IDLE_TIMEOUT_MS,
-    );
-    clearTimeout(entry.idleTimeoutHandle);
+    if (entry.idleTimeoutHandle) {
+      clearTimeout(entry.idleTimeoutHandle);
+    }
+
     entry.idleTimeoutHandle = setTimeout(() => {
       this.pending.delete(id);
       clearTimeout(entry.timeoutHandle);
