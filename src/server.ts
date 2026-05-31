@@ -2,6 +2,7 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { NotImplementedError, ProtocolError, toOpenAIError } from "./errors.js";
 import type { PythonBackend } from "./backend.js";
+import { logger } from "./logger.js";
 import { getChatCompletionsParamsSchema } from "./schemas.js";
 import type { ChatCompletionChunkDelta, OpenAIChatRequest } from "./types.js";
 
@@ -48,7 +49,7 @@ export function createServer(backend: ServerBackend): http.Server {
         try {
           const body = await readJson<OpenAIChatRequest>(req);
           if (body.stream === true) {
-            return await handleStreamingChatCompletion(res, backend, body, requestId);
+            return await handleStreamingChatCompletion(req, res, backend, body, requestId);
           }
           const result = await backend.call("chat.completions", body);
           return sendJson(res, 200, result);
@@ -73,6 +74,7 @@ export function createServer(backend: ServerBackend): http.Server {
 }
 
 async function handleStreamingChatCompletion(
+  req: IncomingMessage,
   res: ServerResponse,
   backend: ServerBackend,
   body: OpenAIChatRequest,
@@ -89,6 +91,7 @@ async function handleStreamingChatCompletion(
   }
 
   const model = parsed.data.model;
+  const params = injectMockFailureOptions(parsed.data, req);
   const created = Math.floor(Date.now() / 1000);
   const streamId = `chatcmpl-${requestId}`;
 
@@ -101,7 +104,7 @@ async function handleStreamingChatCompletion(
   try {
     const finalMeta = await backend.streamingCall<StreamingFinal>(
       "chat.completions",
-      parsed.data,
+      params,
       (delta) => writeSseChunk(res, streamId, model, created, normalizeDelta(delta), null),
     );
     writeSseChunk(res, streamId, model, created, {}, finalMeta.finish_reason);
@@ -173,6 +176,25 @@ function normalizeDelta(delta: unknown): ChatCompletionChunkDelta {
     normalized.content = record.content;
   }
   return normalized;
+}
+
+function injectMockFailureOptions<T extends object>(params: T, req: IncomingMessage): T | (T & { _mock: { raise_after_chunk: number; raise_kind: "sdk_api" } }) {
+  const rawHeader = req.headers["x-mock-fail-after-chunk"];
+  const headerValue = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+  if (headerValue === undefined) {
+    return params;
+  }
+
+  const failAfterChunk = Number(headerValue);
+  if (!Number.isInteger(failAfterChunk) || failAfterChunk < 0) {
+    logger.warn({ headerValue }, "invalid X-Mock-Fail-After-Chunk header; skipping mock failure injection");
+    return params;
+  }
+
+  return {
+    ...params,
+    _mock: { raise_after_chunk: failAfterChunk, raise_kind: "sdk_api" },
+  };
 }
 
 async function readJson<T>(req: IncomingMessage): Promise<T> {
