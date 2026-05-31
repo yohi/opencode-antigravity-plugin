@@ -51,7 +51,9 @@ describe("PythonBackend.streamingCall", () => {
         messages: [{ role: "user", content: "hi" }],
         stream: true,
       },
-      (delta) => chunks.push(delta),
+      async (delta) => {
+        chunks.push(delta);
+      },
     );
 
     expect(chunks.length).toBeGreaterThan(0);

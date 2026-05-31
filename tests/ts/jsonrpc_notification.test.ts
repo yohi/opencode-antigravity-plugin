@@ -14,14 +14,14 @@ function makeClient() {
 describe("JsonRpcClient notification dispatch", () => {
   it("dispatches chunk to onChunk by request_id (#26)", async () => {
     const { client, writes } = makeClient();
-    const onChunk = vi.fn();
+    const onChunk = vi.fn().mockResolvedValue(undefined);
 
     const promise = client.streamingCall("chat.completions", { stream: true }, onChunk);
     const request = JSON.parse(writes[0]!);
 
     expect(client.lastRequestId).toBe(request.id);
 
-    client._ingest(
+    await client._ingest(
       JSON.stringify({
         jsonrpc: "2.0",
         method: "chat.completions.chunk",
@@ -32,7 +32,7 @@ describe("JsonRpcClient notification dispatch", () => {
     expect(onChunk).toHaveBeenCalledTimes(1);
     expect(onChunk).toHaveBeenCalledWith({ content: "x" });
 
-    client._ingest(
+    await client._ingest(
       JSON.stringify({
         jsonrpc: "2.0",
         id: request.id,
@@ -43,10 +43,10 @@ describe("JsonRpcClient notification dispatch", () => {
     await expect(promise).resolves.toEqual({ finish_reason: "stop" });
   });
 
-  it("ignores unknown request_id with warning (#27)", () => {
+  it("ignores unknown request_id with warning (#27)", async () => {
     const { client, warnings } = makeClient();
 
-    client._ingest(
+    await client._ingest(
       JSON.stringify({
         jsonrpc: "2.0",
         method: "chat.completions.chunk",

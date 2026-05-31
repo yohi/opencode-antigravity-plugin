@@ -86,33 +86,39 @@ async function handleStreamingChatCompletion(
   params: ChatCompletionsParams,
   requestId: string,
 ): Promise<void> {
-  if (!backend.streamingCall) {
-    throw new NotImplementedError("streaming is not supported by backend");
-  }
-
   const model = params.model;
   const created = Math.floor(Date.now() / 1000);
   const streamId = `chatcmpl-${requestId}`;
 
+  // Always write SSE headers first for stream:true
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   });
 
+  if (!backend.streamingCall) {
+    const error = new NotImplementedError("streaming is not supported by backend");
+    const mapped = toOpenAIError(error);
+    await writeSseData(res, { error: mapped.body.error });
+    endResponse(res);
+    return;
+  }
+
   try {
     const finalMeta = await backend.streamingCall<StreamingFinal>(
       "chat.completions",
       params,
-      (delta) => writeSseChunk(res, streamId, model, created, normalizeDelta(delta), null),
+      async (delta) =>
+        await writeSseChunk(res, streamId, model, created, normalizeDelta(delta), null),
     );
-    writeSseChunk(res, streamId, model, created, {}, finalMeta.finish_reason, finalMeta.usage);
-    writeSseDone(res);
+    await writeSseChunk(res, streamId, model, created, {}, finalMeta.finish_reason, finalMeta.usage);
+    await writeSseDone(res);
     endResponse(res);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     const mapped = toOpenAIError(error);
-    writeSseData(res, { error: mapped.body.error });
+    await writeSseData(res, { error: mapped.body.error });
     endResponse(res);
   }
 }

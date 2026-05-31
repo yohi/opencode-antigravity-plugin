@@ -102,7 +102,7 @@ export class PythonBackend extends EventEmitter {
   async streamingCall<T = { finish_reason: string; usage: object }>(
     method: string,
     params: unknown,
-    onChunk: (delta: unknown) => void,
+    onChunk: (delta: unknown) => Promise<void> | void,
   ): Promise<T> {
     if (this.state === "permanently_failed") {
       throw new BackendPermanentlyFailedError();
@@ -114,7 +114,9 @@ export class PythonBackend extends EventEmitter {
     if (this.state !== "ready" || this.client === null) {
       throw new BackendCrashedError(`backend not ready (state=${this.state})`);
     }
-    return this.client.streamingCall<T>(method, params, onChunk);
+    return this.client.streamingCall<T>(method, params, async (delta) => {
+      await onChunk(delta);
+    });
   }
 
   async stop(): Promise<void> {
@@ -187,14 +189,17 @@ export class PythonBackend extends EventEmitter {
     });
   }
 
-  private onStdoutChunk(chunk: string): void {
+  private async onStdoutChunk(chunk: string): Promise<void> {
     this.stdoutBuf += chunk;
     let idx = this.stdoutBuf.indexOf("\n");
     while (idx >= 0) {
       const line = this.stdoutBuf.slice(0, idx);
       this.stdoutBuf = this.stdoutBuf.slice(idx + 1);
-      if (line.trim().length === 0) continue;
-      this.client?.handleInboundLine(line);
+      if (line.trim().length === 0) {
+        idx = this.stdoutBuf.indexOf("\n");
+        continue;
+      }
+      await this.client?.handleInboundLine(line);
       idx = this.stdoutBuf.indexOf("\n");
     }
   }

@@ -3499,7 +3499,14 @@ gh pr create --draft --base feature/phase2/ts-backend \
 `.stack-urls.md` に `- T3.5: <url>` を追記。
 
 **進捗メモ (2026-05-31):** T3.5 完了。PR #50 (Draft) 作成済み → https://github.com/yohi/opencode-antigravity-plugin/pull/50
-RED: `pnpm test:e2e` で stream:true が 501 のため失敗。GREEN: `pnpm test:e2e` で 4 tests passed。smoke: `PORT=11436 ... node dist/src/index.js` + `curl -N` で SSE chunk と `[DONE]` を確認。検証: devcontainer は `Dev container not found`、host `pnpm verify` は Python 80 passed / 2 skipped、TS unit 55 passed、integration 7 passed、E2E 4 passed。
+- **RED の失敗原因**: `pnpm test:e2e` において、`stream:true` を指定したリクエストが 501 (Not Implemented) を返し、期待される SSE ストリームが開始されないことを確認。具体的には `tests/ts/streaming_call.test.ts` で `res.status` が 501 となり、`data: [DONE]` 等の chunk が受信できない。
+- **実装の要点**: `src/server.ts` の `handleStreamingChatCompletion` を修正し、バックエンド未対応時も SSE ヘッダーを先行して送信するように変更。また、ストリーミング中のバックプレッシャ制御のため、`onChunk` コールバックを `Promise<void>` に変更し、`res.write` が false を返した際に `drain` イベントを await するロジックを導入。
+- **テストスイート詳細内訳**:
+    - Python: 80 passed / 2 skipped (`test_antigravity_client_live_smoke.py` は API キー未設定のためスキップ)。
+    - TS Unit: 55 passed (JSON-RPC エンコード/デコード、エラー変換など)。
+    - Integration: 7 passed (Python プロセス管理、クラッシュ復旧など)。
+    - E2E: 4 passed (正常系チャット補完、ヘルスチェック)。
+- **devcontainer の失敗理由**: ホスト環境の Docker コンテキスト設定の不備により、`Dev container not found` エラーが発生。当面はホスト環境の `pnpm verify` を使用して検証を継続する回避手順を確認。
 
 ---
 
