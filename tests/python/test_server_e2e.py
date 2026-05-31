@@ -68,6 +68,7 @@ def test_unknown_method_returns_minus_32601() -> None:
 def test_invalid_utf8() -> None:
     proc = _spawn()
     try:
+        _rpc(proc, {"jsonrpc": "2.0", "id": 1, "method": "health", "params": {}})
         # Invalid UTF-8 sequence
         assert proc.stdin and proc.stdout
         proc.stdin.write(b"\xff\xfe\xfd\n")
