@@ -43,7 +43,7 @@ describe("E2E", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "opencode-antigravity-echo",
+        model: "gemini-2.5-pro",
         messages: [{ role: "user", content: "hi" }],
       }),
     });
@@ -52,9 +52,9 @@ describe("E2E", () => {
       choices: { message: { content: string } }[];
       model: string;
     };
-    expect(body.model).toBe("opencode-antigravity-echo");
+    expect(body.model).toBe("gemini-2.5-pro");
     expect(body.choices.length).toBeGreaterThan(0);
-    expect(body.choices[0]!.message.content).toBe("[echo] hi");
+    expect(body.choices[0]!.message.content).toBe("[mock] hi");
   });
 
   test("GET /healthz returns ok with restart count (#20)", async () => {
@@ -70,7 +70,7 @@ describe("E2E", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "opencode-antigravity-echo",
+        model: "gemini-2.5-pro",
         messages: [{ role: "user", content: "hi" }],
         stream: true,
       }),

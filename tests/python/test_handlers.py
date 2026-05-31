@@ -1,9 +1,16 @@
+from collections.abc import Awaitable
+from typing import Any, cast
+
 import pytest
 from opencode_antigravity.handlers import (
     chat_completions,
     echo,
     health,
 )
+
+
+async def _await_completion(value: object) -> dict[str, Any]:
+    return await cast(Awaitable[dict[str, Any]], value)
 
 
 def test_echo() -> None:
@@ -13,7 +20,7 @@ def test_echo() -> None:
 def test_echo_invalid_params_list() -> None:
     # params must be a dict
     with pytest.raises(ValueError, match="params must be a dict"):
-        echo(["hi"])  # type: ignore[arg-type]
+        echo(cast(dict[str, Any], cast(object, ["hi"])))
 
 
 def test_health() -> None:
@@ -22,53 +29,73 @@ def test_health() -> None:
     assert "version" in result
 
 
-def test_chat_completions_returns_openai_format() -> None:
-    result = chat_completions(
-        {
-            "model": "opencode-antigravity-echo",
-            "messages": [{"role": "user", "content": "hi"}],
-        }
+@pytest.mark.asyncio
+async def test_chat_completions_returns_openai_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTIGRAVITY_MODEL", "gemini-2.5-pro")
+
+    result = await _await_completion(
+        chat_completions(
+            {
+                "model": "gemini-2.5-pro",
+                "messages": [{"role": "user", "content": "hi"}],
+            }
+        )
     )
+
     assert result["object"] == "chat.completion"
-    assert result["model"] == "opencode-antigravity-echo"
+    assert result["model"] == "gemini-2.5-pro"
     assert result["choices"][0]["message"]["role"] == "assistant"
-    assert result["choices"][0]["message"]["content"] == "[echo] hi"
+    assert result["choices"][0]["message"]["content"] == "[mock] hi"
     assert result["choices"][0]["finish_reason"] == "stop"
     assert result["id"].startswith("chatcmpl-")
     assert result["usage"] == {
-        "prompt_tokens": 0,
-        "completion_tokens": 0,
-        "total_tokens": 0,
+        "prompt_tokens": 2,
+        "completion_tokens": 2,
+        "total_tokens": 4,
     }
 
 
-def test_chat_completions_uses_last_user_message() -> None:
-    result = chat_completions(
-        {
-            "model": "opencode-antigravity-echo",
-            "messages": [
-                {"role": "user", "content": "first"},
-                {"role": "assistant", "content": "hello"},
-                {"role": "user", "content": "last"},
-            ],
-        }
+@pytest.mark.asyncio
+async def test_chat_completions_uses_last_user_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTIGRAVITY_MODEL", "gemini-2.5-pro")
+
+    result = await _await_completion(
+        chat_completions(
+            {
+                "model": "gemini-2.5-pro",
+                "messages": [
+                    {"role": "user", "content": "first"},
+                    {"role": "assistant", "content": "hello"},
+                    {"role": "user", "content": "last"},
+                ],
+            }
+        )
     )
-    assert result["choices"][0]["message"]["content"] == "[echo] last"
+
+    assert result["choices"][0]["message"]["content"] == "[mock] last"
 
 
 def test_chat_completions_invalid_params() -> None:
     with pytest.raises(ValueError):
-        chat_completions({"model": "x"})  # messages 欠落
+        chat_completions({"model": "gemini-2.5-pro"})  # messages 欠落
 
 
-def test_chat_completions_missing_user_role() -> None:
-    with pytest.raises(ValueError, match="no user messages"):
+@pytest.mark.asyncio
+async def test_chat_completions_without_user_role_is_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANTIGRAVITY_MODEL", "gemini-2.5-pro")
+
+    result = await _await_completion(
         chat_completions(
             {
-                "model": "x",
+                "model": "gemini-2.5-pro",
                 "messages": [
                     {"role": "system", "content": "you are a bot"},
                     {"role": "assistant", "content": "hello"},
                 ],
             }
         )
+    )
+
+    assert result["choices"][0]["message"]["content"] == "[mock] "
