@@ -115,7 +115,13 @@ class MockAntigravityClient:
                 self.fail_next_enter = False
                 raise RuntimeError("cold-start failure")
 
-            initial_delay_ms = int(os.environ.get("OAG_MOCK_INITIAL_DELAY_MS", "0"))
+            _raw_delay = os.environ.get("OAG_MOCK_INITIAL_DELAY_MS", "0")
+            try:
+                initial_delay_ms = int(_raw_delay)
+            except ValueError as exc:
+                raise ValueError(
+                    f"OAG_MOCK_INITIAL_DELAY_MS must be an integer millisecond value, got {_raw_delay!r}"
+                ) from exc
             if initial_delay_ms > 0:
                 await asyncio.sleep(initial_delay_ms / 1000.0)
 
