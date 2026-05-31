@@ -55,6 +55,7 @@ def chat_completions(
         raise ValueError(f"model must be {allowed_model}")
 
     messages = [message.model_dump() for message in req.messages]
+    # Call for early role-validation side-effect only; return value not used here.
     fold_messages_to_prompt(messages)
 
     selected_client = client if client is not None else MockAntigravityClient(model=allowed_model)
@@ -68,15 +69,12 @@ async def _stream_impl(
     messages: list[dict[str, Any]],
     client: AntigravityClientBase,
 ) -> AsyncGenerator[dict[str, Any], None]:
-    role_sent = False
+    yield {"delta": {"role": "assistant", "content": ""}}
     completion_tokens = 0
 
     async for token in client.stream_chat(messages):
-        if not role_sent:
-            yield {"delta": {"role": "assistant", "content": ""}}
-            role_sent = True
         yield {"delta": {"content": token}}
-        completion_tokens += 1
+        completion_tokens += len(str(token))
 
     prompt_tokens = _count_prompt_tokens(req)
     yield {
@@ -111,12 +109,13 @@ async def _aggregate_impl(
             delta = item.get("delta", {})
             content = delta.get("content") if isinstance(delta, dict) else None
             if content:
-                buffer.append(str(content))
-                completion_tokens += 1
+                content_length = len(str(content))
+                completion_tokens += content_length
                 if completion_tokens > max_tokens:
                     raise SdkApiError(
                         f"aggregation exceeded OAG_MAX_AGGREGATE_TOKENS (N={max_tokens})"
                     )
+                buffer.append(str(content))
     finally:
         await agen.aclose()
 
@@ -156,6 +155,7 @@ def _max_aggregate_tokens() -> int:
 
 
 def _count_prompt_tokens(req: _ChatRequest) -> int:
+    # NOTE: character-length approximation; not actual subword token count.
     return sum(len(message.content) for message in req.messages)
 
 

@@ -48,8 +48,8 @@ async def test_chat_completions_stream_true_yields_chunks_and_final_sentinel(
         assert final["finish_reason"] == "stop"
         assert final["usage"] == {
             "prompt_tokens": 5,
-            "completion_tokens": 2,
-            "total_tokens": 7,
+            "completion_tokens": 12,
+            "total_tokens": 17,
         }
     finally:
         await client.stop()
@@ -80,8 +80,8 @@ async def test_chat_completions_stream_false_returns_aggregated_dict(
         assert result["choices"][0]["finish_reason"] == "stop"
         assert result["usage"] == {
             "prompt_tokens": 5,
-            "completion_tokens": 2,
-            "total_tokens": 7,
+            "completion_tokens": 12,
+            "total_tokens": 17,
         }
     finally:
         await client.stop()
@@ -113,7 +113,7 @@ async def test_chat_completions_empty_messages_raises(monkeypatch: pytest.Monkey
 async def test_chat_completions_unknown_model_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTIGRAVITY_MODEL", "gemini-2.5-pro")
 
-    with pytest.raises(ValueError, match="model must be gemini-2.5-pro"):
+    with pytest.raises(ValueError, match=r"model must be gemini-2\.5-pro"):
         chat_completions(
             {
                 "model": "wrong-model",
