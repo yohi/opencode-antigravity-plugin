@@ -5,12 +5,12 @@ from __future__ import annotations
 import os
 import secrets
 from collections.abc import AsyncGenerator, Awaitable
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field, ValidationError
 
 from . import __version__
-from .antigravity_client import AntigravityClientBase, MockAntigravityClient
+from .antigravity_client import AntigravityClientBase, MockAntigravityClient, MockOptions
 from .errors import SdkApiError
 from .prompt_folding import fold_messages_to_prompt
 
@@ -58,9 +58,14 @@ def chat_completions(
     # Call for early role-validation side-effect only; return value not used here.
     fold_messages_to_prompt(messages)
 
+    raw_mock_options = params.get("_mock")
+    mock_options: MockOptions | None = None
+    if isinstance(raw_mock_options, dict):
+        mock_options = cast(MockOptions, raw_mock_options)
+
     selected_client = client if client is not None else MockAntigravityClient(model=allowed_model)
     if req.stream:
-        return _stream_impl(req, messages, selected_client)
+        return _stream_impl(req, messages, selected_client, mock_options=mock_options)
     return _aggregate_impl(req, messages, selected_client)
 
 
@@ -68,11 +73,13 @@ async def _stream_impl(
     req: _ChatRequest,
     messages: list[dict[str, Any]],
     client: AntigravityClientBase,
+    *,
+    mock_options: MockOptions | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     yield {"delta": {"role": "assistant", "content": ""}}
     completion_tokens = 0
 
-    async for token in client.stream_chat(messages):
+    async for token in client.stream_chat(messages, mock_options=mock_options):
         yield {"delta": {"content": token}}
         completion_tokens += len(str(token))
 
