@@ -21,17 +21,25 @@ describe("JsonRpcClient advanced scenarios", () => {
     vi.useRealTimers();
   });
 
-  it("triggers idle timeout if no chunk arrives", async () => {
+  it("idle timer is not armed before first chunk and request timeout still runs", async () => {
     const { client } = makeClient();
     const onChunk = vi.fn();
 
     const promise = client.streamingCall("test", {}, onChunk);
     
     // Idle timeout is NOT armed until first chunk
+    // Default idle timeout is 30s.
     vi.advanceTimersByTime(35000); 
-    // It should NOT have timed out yet because no chunk arrived, 
-    // BUT the request timeout is still running.
-    // Default request timeout is 60s.
+    
+    // Check it hasn't timed out yet (idle timer didn't fire)
+    expect(client.pendingCount).toBe(1);
+
+    // Default request timeout is 60s. Total time now 35s.
+    // Advance remaining 25s + 1ms to trigger request timeout.
+    vi.advanceTimersByTime(25001);
+
+    await expect(promise).rejects.toThrow(/call timed out after 60000ms/);
+    expect(client.pendingCount).toBe(0);
   });
 
   it("arms idle timer on first chunk and times out if idle", async () => {
