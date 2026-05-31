@@ -187,5 +187,13 @@ describe("JsonRpcClient advanced scenarios", () => {
       params: { request_id: requestId, delta: {} }
     }) + "\n");
     expect(warnings.some(w => w.includes("received streaming chunk for non-streaming request"))).toBe(true);
+
+    // Settle the promise to avoid leaks
+    client._ingest(JSON.stringify({
+      jsonrpc: "2.0",
+      id: requestId,
+      result: "ok"
+    }) + "\n");
+    await expect(promise).resolves.toBe("ok");
   });
 });
