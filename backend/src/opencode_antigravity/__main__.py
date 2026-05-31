@@ -11,7 +11,7 @@ from typing import Any
 
 from .antigravity_client import create_client
 from .handlers import chat_completions, echo, health
-from .server import _StdoutWriter, run
+from .server import StdoutWriter, apply_test_handlers, run
 
 logger = logging.getLogger(__name__)
 
@@ -59,14 +59,7 @@ def _build_handlers(client: Any) -> dict[str, Any]:
         "echo": echo,
         "chat.completions": functools.partial(chat_completions, client=client),
     }
-
-    if os.environ.get("OPENCODE_ANTIGRAVITY_ENABLE_TEST_HANDLERS", "").lower() == "true":
-
-        def _crash_handler(_params: dict[str, Any]) -> dict[str, Any]:
-            raise RuntimeError("simulated crash")
-
-        handlers["__crash__"] = _crash_handler
-
+    apply_test_handlers(handlers)
     return handlers
 
 
@@ -82,14 +75,14 @@ async def async_main() -> None:
     logger.info("OAG_BACKEND_MODE=%s ANTIGRAVITY_MODEL=%s", mode, model)
 
     client = create_client(model=model, mode=mode, api_key=api_key)
-    await client.start()
 
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader()
     protocol = asyncio.StreamReaderProtocol(reader)
-    writer = _StdoutWriter()
+    writer = StdoutWriter()
 
     try:
+        await client.start()
         await loop.connect_read_pipe(lambda: protocol, sys.stdin)
         await run(reader=reader, writer=writer, handlers=_build_handlers(client))
     finally:

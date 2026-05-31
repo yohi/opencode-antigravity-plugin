@@ -3,10 +3,11 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 def _run_main(env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    pythonpath = os.path.join(os.getcwd(), "backend", "src")
+    pythonpath = str(Path(__file__).resolve().parents[3] / "backend" / "src")
     return subprocess.run(
         [sys.executable, "-m", "opencode_antigravity"],
         env={
