@@ -120,7 +120,8 @@ class MockAntigravityClient:
                 initial_delay_ms = int(_raw_delay)
             except ValueError as exc:
                 raise ValueError(
-                    f"OAG_MOCK_INITIAL_DELAY_MS must be an integer millisecond value, got {_raw_delay!r}"
+                    "OAG_MOCK_INITIAL_DELAY_MS must be an integer millisecond value, "
+                    f"got {_raw_delay!r}"
                 ) from exc
             if initial_delay_ms > 0:
                 await asyncio.sleep(initial_delay_ms / 1000.0)
