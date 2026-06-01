@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test:unit": "vitest run tests/ts --exclude \"tests/ts/{backend,integration,streaming_call}.test.ts\" --passWithNoTests",
-    "test:integration": "uv run vitest run tests/ts/backend.test.ts tests/ts/streaming_call.test.ts --passWithNoTests",
-    "test:e2e": "uv run vitest run tests/ts/integration.test.ts --passWithNoTests",
+    "test:unit": "vitest run tests/ts --exclude \"tests/ts/{backend,integration,streaming_call,sse}.test.ts\" --passWithNoTests",
+    "test:integration": "uv run vitest run tests/ts/backend.test.ts tests/ts/streaming_call.test.ts --passWithNoTests --no-file-parallelism",
+    "test:e2e": "pnpm build && uv run vitest run tests/ts/integration.test.ts tests/ts/sse.test.ts --passWithNoTests --no-file-parallelism",
     "test:python": "uv run pytest",
     "lint:python": "uv run ruff check backend/src tests/python",
     "verify": "uv run ruff check backend/src tests/python && uv run pytest && pnpm test:unit && pnpm test:integration && pnpm test:e2e"
