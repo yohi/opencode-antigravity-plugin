@@ -47,7 +47,8 @@ interface PendingEntry {
   timeoutHandle: NodeJS.Timeout;
   idleTimeoutHandle?: NodeJS.Timeout;
   idleTimeoutMs?: number;
-  onChunk?: (delta: unknown) => void;
+  onChunk?: (delta: unknown) => Promise<void>;
+  chunkChain: Promise<void>;
 }
 
 export interface JsonRpcClientOptions {
@@ -90,58 +91,11 @@ export class JsonRpcClient {
         reject(new BackendTimeoutError(`call timed out after ${timeoutMs}ms`));
       }, timeoutMs);
 
-      this.pending.set(id, { resolve, reject, timeoutHandle });
-
-      try {
-        this.opts.write(line);
-      } catch (err) {
-        clearTimeout(timeoutHandle);
-        this.pending.delete(id);
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-    });
-  }
-
-  streamingCall<T = { finish_reason: string; usage: object }>(
-    method: string,
-    params: unknown,
-    onChunk: (delta: unknown) => void,
-  ): Promise<T> {
-    const requestTimeoutMs = timeoutMsFromEnv(
-      "OAG_REQUEST_TIMEOUT_MS",
-      DEFAULT_REQUEST_TIMEOUT_MS,
-    );
-    const idleTimeoutMs = timeoutMsFromEnv(
-      "OAG_STREAM_IDLE_TIMEOUT_MS",
-      DEFAULT_STREAM_IDLE_TIMEOUT_MS,
-    );
-    const id = this.nextId++;
-    this.lastRequestId = id;
-
-    return new Promise<T>((resolve, reject) => {
-      let line: string;
-      try {
-        line = encodeRequest({ id, method, params });
-      } catch (err) {
-        reject(err instanceof Error ? err : new Error(String(err)));
-        return;
-      }
-
-      const timeoutHandle = setTimeout(() => {
-        const entry = this.pending.get(id);
-        this.pending.delete(id);
-        if (entry?.idleTimeoutHandle) {
-          clearTimeout(entry.idleTimeoutHandle);
-        }
-        reject(new BackendTimeoutError(`call timed out after ${requestTimeoutMs}ms`));
-      }, requestTimeoutMs);
-
       this.pending.set(id, {
-        resolve: (result) => resolve(result as T),
+        resolve,
         reject,
         timeoutHandle,
-        idleTimeoutMs,
-        onChunk,
+        chunkChain: Promise.resolve(),
       });
 
       try {
@@ -154,7 +108,9 @@ export class JsonRpcClient {
     });
   }
 
-  handleInboundLine(line: string): void {
+  private notificationChain: Promise<void> = Promise.resolve();
+
+  async handleInboundLine(line: string): Promise<void> {
     let msg: JsonRpcMessage;
     try {
       msg = parseMessage(line);
@@ -166,7 +122,9 @@ export class JsonRpcClient {
     }
 
     if (isNotification(msg)) {
-      this.handleNotification(msg);
+      // design §7.x: ensure sequential execution of notifications
+      this.notificationChain = this.notificationChain.then(() => this.handleNotification(msg));
+      await this.notificationChain;
       return;
     }
 
@@ -222,13 +180,68 @@ export class JsonRpcClient {
       }
       entry.reject(new BackendResponseError(code, message));
     } else {
+      // design §7.x: ensure all chunks are processed before resolving
+      await entry.chunkChain;
       entry.resolve(msg.result);
     }
   }
 
+  streamingCall<T = { finish_reason: string; usage: object }>(
+    method: string,
+    params: unknown,
+    onChunk: (delta: unknown) => Promise<void>,
+  ): Promise<T> {
+    const requestTimeoutMs = timeoutMsFromEnv(
+      "OAG_REQUEST_TIMEOUT_MS",
+      DEFAULT_REQUEST_TIMEOUT_MS,
+    );
+    const idleTimeoutMs = timeoutMsFromEnv(
+      "OAG_STREAM_IDLE_TIMEOUT_MS",
+      DEFAULT_STREAM_IDLE_TIMEOUT_MS,
+    );
+    const id = this.nextId++;
+    this.lastRequestId = id;
+
+    return new Promise<T>((resolve, reject) => {
+      let line: string;
+      try {
+        line = encodeRequest({ id, method, params });
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+        return;
+      }
+
+      const timeoutHandle = setTimeout(() => {
+        const entry = this.pending.get(id);
+        this.pending.delete(id);
+        if (entry?.idleTimeoutHandle) {
+          clearTimeout(entry.idleTimeoutHandle);
+        }
+        reject(new BackendTimeoutError(`call timed out after ${requestTimeoutMs}ms`));
+      }, requestTimeoutMs);
+
+      this.pending.set(id, {
+        resolve: (result) => resolve(result as T),
+        reject,
+        timeoutHandle,
+        idleTimeoutMs,
+        onChunk,
+        chunkChain: Promise.resolve(),
+      });
+
+      try {
+        this.opts.write(line);
+      } catch (err) {
+        clearTimeout(timeoutHandle);
+        this.pending.delete(id);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  }
+
   /** @internal Test hook for injecting a raw inbound NDJSON line. */
-  _ingest(line: string): void {
-    this.handleInboundLine(line);
+  async _ingest(line: string): Promise<void> {
+    await this.handleInboundLine(line);
   }
 
   rejectAll(err: Error): void {
@@ -242,7 +255,7 @@ export class JsonRpcClient {
     }
   }
 
-  private handleNotification(msg: JsonRpcNotification): void {
+  private async handleNotification(msg: JsonRpcNotification): Promise<void> {
     if (msg.params === null || typeof msg.params !== "object") {
       this.opts.warn?.(`jsonrpc: malformed notification params for ${msg.method}`);
       return;
@@ -275,7 +288,8 @@ export class JsonRpcClient {
     }
 
     try {
-      entry.onChunk(params.delta);
+      entry.chunkChain = entry.chunkChain.then(() => entry.onChunk!(params.delta));
+      await entry.chunkChain;
     } catch (err) {
       this.pending.delete(requestId);
       clearTimeout(entry.timeoutHandle);

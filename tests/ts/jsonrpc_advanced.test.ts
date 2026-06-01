@@ -23,7 +23,7 @@ describe("JsonRpcClient advanced scenarios", () => {
 
   it("idle timer is not armed before first chunk and request timeout still runs", async () => {
     const { client } = makeClient();
-    const onChunk = vi.fn();
+    const onChunk = vi.fn().mockResolvedValue(undefined);
 
     const promise = client.streamingCall("test", {}, onChunk);
     
@@ -44,13 +44,13 @@ describe("JsonRpcClient advanced scenarios", () => {
 
   it("arms idle timer on first chunk and times out if idle", async () => {
     const { client, writes } = makeClient();
-    const onChunk = vi.fn();
+    const onChunk = vi.fn().mockResolvedValue(undefined);
 
     const promise = client.streamingCall("test", {}, onChunk);
     const requestId = JSON.parse(writes[0]!).id;
 
     // Send first chunk
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       method: "test.chunk",
       params: { request_id: requestId, delta: { content: "a" } }
@@ -60,6 +60,7 @@ describe("JsonRpcClient advanced scenarios", () => {
 
     // Now idle timer is armed (default 30s)
     vi.advanceTimersByTime(31000);
+    await Promise.resolve(); // Flush microtasks
 
     await expect(promise).rejects.toThrow(BackendTimeoutError);
     await expect(promise).rejects.toThrow("stream idle exceeded 30000ms");
@@ -67,13 +68,13 @@ describe("JsonRpcClient advanced scenarios", () => {
 
   it("resets idle timer on subsequent chunks", async () => {
     const { client, writes } = makeClient();
-    const onChunk = vi.fn();
+    const onChunk = vi.fn().mockResolvedValue(undefined);
 
     const promise = client.streamingCall("test", {}, onChunk);
     const requestId = JSON.parse(writes[0]!).id;
 
     // Chunk 1 at T=0
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       method: "test.chunk",
       params: { request_id: requestId, delta: { content: "a" } }
@@ -82,7 +83,7 @@ describe("JsonRpcClient advanced scenarios", () => {
     vi.advanceTimersByTime(20000);
 
     // Chunk 2 at T=20s
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       method: "test.chunk",
       params: { request_id: requestId, delta: { content: "b" } }
@@ -93,20 +94,21 @@ describe("JsonRpcClient advanced scenarios", () => {
     expect(client.pendingCount).toBe(1);
 
     vi.advanceTimersByTime(11000);
+    await Promise.resolve();
     // Now idle exceeded 30s since last chunk.
     await expect(promise).rejects.toThrow(BackendTimeoutError);
   });
 
   it("respects overall request timeout even with chunks", async () => {
     const { client, writes } = makeClient();
-    const onChunk = vi.fn();
+    const onChunk = vi.fn().mockResolvedValue(undefined);
 
     const promise = client.streamingCall("test", {}, onChunk);
     const requestId = JSON.parse(writes[0]!).id;
 
     // Keep sending chunks every 10s
     for (let i = 0; i < 7; i++) {
-      client._ingest(JSON.stringify({
+      await client._ingest(JSON.stringify({
         jsonrpc: "2.0",
         method: "test.chunk",
         params: { request_id: requestId, delta: { content: String(i) } }
@@ -114,24 +116,23 @@ describe("JsonRpcClient advanced scenarios", () => {
       vi.advanceTimersByTime(10000);
     }
 
+    await Promise.resolve();
     // Total time 70s. Default request timeout is 60s.
     await expect(promise).rejects.toThrow("call timed out after 60000ms");
   });
 
   it("handles onChunk exceptions gracefully", async () => {
     const { client, writes, warnings } = makeClient();
-    const onChunk = vi.fn().mockImplementation(() => {
-      throw new Error("callback crash");
-    });
+    const onChunk = vi.fn().mockRejectedValue(new Error("callback crash"));
 
     const promise = client.streamingCall("test", {}, onChunk);
     const requestId = JSON.parse(writes[0]!).id;
 
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       method: "test.chunk",
       params: { request_id: requestId, delta: { content: "!" } }
-    }) + "\n");
+    }) + "\n").catch(() => {});
 
     await expect(promise).rejects.toThrow("callback crash");
     expect(warnings.some(w => w.includes("onChunk callback threw error"))).toBe(true);
@@ -140,7 +141,7 @@ describe("JsonRpcClient advanced scenarios", () => {
 
   it("matches request_id regardless of number vs string type", async () => {
     const { client, writes } = makeClient();
-    const onChunk = vi.fn();
+    const onChunk = vi.fn().mockResolvedValue(undefined);
 
     const promise = client.streamingCall("test", {}, onChunk);
     const requestId = JSON.parse(writes[0]!).id; // This is a number in our client
@@ -148,7 +149,7 @@ describe("JsonRpcClient advanced scenarios", () => {
     expect(typeof requestId).toBe("number");
 
     // Backend sends it as a string
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       method: "test.chunk",
       params: { request_id: String(requestId), delta: { content: "normalized" } }
@@ -157,7 +158,7 @@ describe("JsonRpcClient advanced scenarios", () => {
     expect(onChunk).toHaveBeenCalledWith({ content: "normalized" });
     
     // Resolve it
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       id: requestId,
       result: "done"
@@ -170,7 +171,7 @@ describe("JsonRpcClient advanced scenarios", () => {
     const { client, warnings } = makeClient();
     
     // 1. Unknown ID
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       method: "test.chunk",
       params: { request_id: 999, delta: {} }
@@ -181,7 +182,7 @@ describe("JsonRpcClient advanced scenarios", () => {
     const promise = client.call("test", {}, { timeoutMs: 1000 });
     const requestId = (client as any).lastRequestId;
 
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       method: "test.chunk",
       params: { request_id: requestId, delta: {} }
@@ -189,7 +190,7 @@ describe("JsonRpcClient advanced scenarios", () => {
     expect(warnings.some(w => w.includes("received streaming chunk for non-streaming request"))).toBe(true);
 
     // Settle the promise to avoid leaks
-    client._ingest(JSON.stringify({
+    await client._ingest(JSON.stringify({
       jsonrpc: "2.0",
       id: requestId,
       result: "ok"
