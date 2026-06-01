@@ -164,16 +164,23 @@ export class PythonBackend extends EventEmitter {
       },
     }) as ChildProcessByStdio<Writable, Readable, null>;
     this.proc = proc;
-    this.client = new JsonRpcClient({
+    const client = new JsonRpcClient({
       write: (line) => proc.stdin.write(line),
       warn: (msg) => logger.warn({ source: "backend" }, msg),
     });
+    this.client = client;
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk: string) => {
-      this.stdoutChain = this.stdoutChain.then(async () => {
-        if (this.generation !== currentGen) return;
-        await this.onStdoutChunk(chunk);
-      });
+      this.stdoutChain = this.stdoutChain
+        .then(async () => {
+          if (this.generation !== currentGen) return;
+          await this.onStdoutChunk(chunk, currentGen, client);
+        })
+        .catch((err) => {
+          if (this.generation === currentGen) {
+            logger.warn({ source: "backend", err }, "stdout processing error");
+          }
+        });
     });
     proc.once("exit", (code, signal) => {
       if (this.generation !== currentGen) return;
@@ -193,7 +200,11 @@ export class PythonBackend extends EventEmitter {
     });
   }
 
-  private async onStdoutChunk(chunk: string): Promise<void> {
+  private async onStdoutChunk(
+    chunk: string,
+    currentGen: number,
+    client: JsonRpcClient,
+  ): Promise<void> {
     this.stdoutBuf += chunk;
     let idx = this.stdoutBuf.indexOf("\n");
     while (idx >= 0) {
@@ -203,7 +214,8 @@ export class PythonBackend extends EventEmitter {
         idx = this.stdoutBuf.indexOf("\n");
         continue;
       }
-      await this.client?.handleInboundLine(line);
+      await client.handleInboundLine(line);
+      if (this.generation !== currentGen) return;
       idx = this.stdoutBuf.indexOf("\n");
     }
   }
