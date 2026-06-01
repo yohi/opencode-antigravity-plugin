@@ -34,7 +34,9 @@ describe("GET /healthz Phase 2 fields", () => {
       throw new Error("no addr");
     }
 
-    const res = await fetch(`http://127.0.0.1:${addr.port}/healthz`);
+    const res = await fetch(`http://127.0.0.1:${addr.port}/healthz`, {
+      headers: { Connection: "close" },
+    });
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       status: string;
@@ -61,7 +63,9 @@ describe("GET /healthz Phase 2 fields", () => {
       throw new Error("no addr");
     }
 
-    const res = await fetch(`http://127.0.0.1:${addr.port}/healthz`);
+    const res = await fetch(`http://127.0.0.1:${addr.port}/healthz`, {
+      headers: { Connection: "close" },
+    });
     expect(res.status).toBe(503);
     const body = (await res.json()) as any;
 
