@@ -181,7 +181,8 @@ export class JsonRpcClient {
       entry.reject(new BackendResponseError(code, message));
     } else {
       // design §7.x: ensure all chunks are processed before resolving
-      entry.chunkChain.then(() => entry.resolve(msg.result));
+      await entry.chunkChain;
+      entry.resolve(msg.result);
     }
   }
 

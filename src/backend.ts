@@ -35,6 +35,7 @@ export class PythonBackend extends EventEmitter {
   private _restartCount = 0;
   private generation = 0;
   private stdoutBuf = "";
+  private stdoutChain: Promise<void> = Promise.resolve();
   private restartAbortController: AbortController | null = null;
 
   constructor(private readonly opts: PythonBackendOptions) {
@@ -151,6 +152,7 @@ export class PythonBackend extends EventEmitter {
 
   private spawnAndWire(): void {
     this.stdoutBuf = "";
+    this.stdoutChain = Promise.resolve();
     this.generation++;
     const currentGen = this.generation;
     const proc = spawn(this.opts.pythonBin, ["-m", this.opts.moduleName], {
@@ -168,8 +170,10 @@ export class PythonBackend extends EventEmitter {
     });
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk: string) => {
-      if (this.generation !== currentGen) return;
-      this.onStdoutChunk(chunk);
+      this.stdoutChain = this.stdoutChain.then(async () => {
+        if (this.generation !== currentGen) return;
+        await this.onStdoutChunk(chunk);
+      });
     });
     proc.once("exit", (code, signal) => {
       if (this.generation !== currentGen) return;
