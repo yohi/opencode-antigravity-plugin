@@ -38,6 +38,7 @@ select = ["E", "F", "I", "T20"]  # T201 = print, T203 = pprint
 pythonpath = ["backend/src"]
 testpaths = ["tests/python"]
 asyncio_mode = "auto"
+addopts = "-m 'not live'"
 markers = [
     "live: tests requiring GEMINI_API_KEY",
 ]

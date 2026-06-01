@@ -3867,7 +3867,7 @@ Draft PR: https://github.com/yohi/opencode-antigravity-plugin/pull/51
 - Modify: `package.json` (`test:e2e:live` スクリプト追加)
 - Modify: `pyproject.toml` (`live` pytest マーカ宣言)
 
-- [ ] **Step 1: ブランチ作成と検証 (poka-yoke)**
+- [x] **Step 1: ブランチ作成と検証 (poka-yoke)**
 
 ```bash
 cd /workspaces/opencode-antigravity-plugin
@@ -3881,7 +3881,7 @@ git merge-base --is-ancestor "origin/${EXPECTED_BASE}" "${CURRENT_BRANCH}" \
 echo "OK"
 ```
 
-- [ ] **Step 2: pyproject.toml に live マーカを宣言**
+- [x] **Step 2: pyproject.toml に live マーカを宣言**
 
 ```toml
 [tool.pytest.ini_options]
@@ -3893,7 +3893,7 @@ markers = [
 addopts = "-m 'not live'"
 ```
 
-- [ ] **Step 3: `tests/python/e2e_live/test_real_gemini.py` を作成**
+- [x] **Step 3: Python live E2E テストを確認**
 
 ```python
 import os
@@ -3923,7 +3923,11 @@ async def test_real_gemini_stream_short_prompt():
         await client.stop()
 ```
 
-- [ ] **Step 4: `tests/ts/sse_live.test.ts` を作成**
+実装では既存の `tests/python/e2e_live/test_antigravity_client_live_smoke.py`
+を再利用し、重複する `test_real_gemini.py` は作成しない。
+`GEMINI_API_KEY` 未設定時は live smoke / cold-start 計測とも skip される。
+
+- [x] **Step 4: `tests/ts/sse_live.test.ts` を作成**
 
 ```ts
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -3983,7 +3987,7 @@ describe.skipIf(!RUN_LIVE)("SSE live", () => {
 
 > **設計判断:** live SSE テストは `dist/src/index.js` (Phase 2 build 出力) をサブプロセスで起動し、テスト内で `/healthz` ポーリングして同期する。`pnpm test:e2e:live` を CI / 手動どちらで実行してもこのテストだけでサーバ管理が完結し、別途 `pnpm start` 不要。Python ワーカは `node` プロセスが起動時に spawn する。
 
-- [ ] **Step 5: `package.json` に `test:e2e:live` を追加**
+- [x] **Step 5: `package.json` に `test:e2e:live` を追加**
 
 ```json
 "scripts": {
@@ -3993,11 +3997,11 @@ describe.skipIf(!RUN_LIVE)("SSE live", () => {
 
 > **`pnpm build` を前段で必須化する理由:** `tests/ts/sse_live.test.ts` の `beforeAll` が `node dist/src/index.js` を spawn するため、最新ビルドが必要。CI / nightly でも同じスクリプトを叩くので、ビルドステップを script 内で完結させる。
 
-- [ ] **Step 6: CI 設定の確認**
+- [x] **Step 6: CI 設定の確認**
 
 `.github/workflows/ci.yml` の `Verify` ステップでは `pyproject.toml` 側 `addopts = -m 'not live'` により live マーカが除外される。明示的に `pnpm test:e2e:live` は CI で実行しない (手動 / nightly 運用)。
 
-- [ ] **Step 7: ローカル smoke (live; 任意。GEMINI_API_KEY 必要)**
+- [x] **Step 7: ローカル smoke (live; 任意。GEMINI_API_KEY 必要)**
 
 ```bash
 # 開発者の手元で
@@ -4009,14 +4013,23 @@ OAG_BACKEND_MODE=live pnpm test:e2e:live
 
 これは PR 段階では実行不要。CI でも実行しない。
 
-- [ ] **Step 8: コミット**
+`GEMINI_API_KEY` 未設定環境で `pnpm test:e2e:live` を実行し、
+TS live は 1 skipped、Python live は 2 skipped で正常終了することを確認済み。
+実 Gemini API の live 実行はキー設定環境での任意確認とする。
+
+- [x] **Step 8: コミット**
 
 ```bash
 git add tests/python/e2e_live tests/ts/sse_live.test.ts package.json pnpm-lock.yaml pyproject.toml
 git commit -m "test(e2e-live): 実 Gemini SDK 経路の E2E 基盤を追加 (CI 既定スキップ)"
 ```
 
-- [ ] **Step 9: プッシュと Draft PR 作成、URL を記録**
+実際のコミット:
+
+- `5252aba test(e2e-live): SSE live E2E スクリプトを追加`
+- `4a39726 test(python): live テストを通常検証から除外`
+
+- [x] **Step 9: プッシュと Draft PR 作成、URL を記録**
 
 ```bash
 git push -u origin feature/phase2/e2e-live
@@ -4026,6 +4039,8 @@ gh pr create --draft --base feature/phase2/e2e-mock \
 ```
 
 `.stack-urls.md` に `- T4.3: <url>` を追記。
+
+Draft PR: https://github.com/yohi/opencode-antigravity-plugin/pull/52
 
 ---
 
