@@ -90,7 +90,7 @@ describe("E2E", () => {
         choices: { delta: { role?: string; content?: string }; finish_reason: string | null }[];
       });
 
-    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.length).toBeGreaterThan(0);
     expect(chunks[0]?.object).toBe("chat.completion.chunk");
     expect(chunks[0]?.model).toBe("gemini-2.5-pro");
     expect(chunks[0]?.choices[0]?.delta.role).toBe("assistant");

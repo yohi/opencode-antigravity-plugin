@@ -17,6 +17,11 @@ export interface PythonBackendOptions {
   moduleName: string;
   cwd: string;
   healthTimeoutMs: number;
+  /**
+   * JSON-RPC call timeout in milliseconds.
+   * NOTE: Currently only applies to unary `call()`. `streamingCall()` uses
+   * `OAG_REQUEST_TIMEOUT_MS` environment variable (default 60s) instead.
+   */
   callTimeoutMs: number;
   maxRestarts: number;
   backoffMs: number[]; // length === maxRestarts
@@ -30,6 +35,7 @@ export class PythonBackend extends EventEmitter {
   private _restartCount = 0;
   private generation = 0;
   private stdoutBuf = "";
+  private stdoutChain: Promise<void> = Promise.resolve();
   private restartAbortController: AbortController | null = null;
 
   constructor(private readonly opts: PythonBackendOptions) {
@@ -97,7 +103,7 @@ export class PythonBackend extends EventEmitter {
   async streamingCall<T = { finish_reason: string; usage: object }>(
     method: string,
     params: unknown,
-    onChunk: (delta: unknown) => void,
+    onChunk: (delta: unknown) => Promise<void> | void,
   ): Promise<T> {
     if (this.state === "permanently_failed") {
       throw new BackendPermanentlyFailedError();
@@ -109,7 +115,9 @@ export class PythonBackend extends EventEmitter {
     if (this.state !== "ready" || this.client === null) {
       throw new BackendCrashedError(`backend not ready (state=${this.state})`);
     }
-    return this.client.streamingCall<T>(method, params, onChunk);
+    return this.client.streamingCall<T>(method, params, async (delta) => {
+      await onChunk(delta);
+    });
   }
 
   async stop(): Promise<void> {
@@ -144,6 +152,7 @@ export class PythonBackend extends EventEmitter {
 
   private spawnAndWire(): void {
     this.stdoutBuf = "";
+    this.stdoutChain = Promise.resolve();
     this.generation++;
     const currentGen = this.generation;
     const proc = spawn(this.opts.pythonBin, ["-m", this.opts.moduleName], {
@@ -155,14 +164,23 @@ export class PythonBackend extends EventEmitter {
       },
     }) as ChildProcessByStdio<Writable, Readable, null>;
     this.proc = proc;
-    this.client = new JsonRpcClient({
+    const client = new JsonRpcClient({
       write: (line) => proc.stdin.write(line),
       warn: (msg) => logger.warn({ source: "backend" }, msg),
     });
+    this.client = client;
     proc.stdout.setEncoding("utf8");
     proc.stdout.on("data", (chunk: string) => {
-      if (this.generation !== currentGen) return;
-      this.onStdoutChunk(chunk);
+      this.stdoutChain = this.stdoutChain
+        .then(async () => {
+          if (this.generation !== currentGen) return;
+          await this.onStdoutChunk(chunk, currentGen, client);
+        })
+        .catch((err) => {
+          if (this.generation === currentGen) {
+            logger.warn({ source: "backend", err }, "stdout processing error");
+          }
+        });
     });
     proc.once("exit", (code, signal) => {
       if (this.generation !== currentGen) return;
@@ -182,14 +200,22 @@ export class PythonBackend extends EventEmitter {
     });
   }
 
-  private onStdoutChunk(chunk: string): void {
+  private async onStdoutChunk(
+    chunk: string,
+    currentGen: number,
+    client: JsonRpcClient,
+  ): Promise<void> {
     this.stdoutBuf += chunk;
     let idx = this.stdoutBuf.indexOf("\n");
     while (idx >= 0) {
       const line = this.stdoutBuf.slice(0, idx);
       this.stdoutBuf = this.stdoutBuf.slice(idx + 1);
-      if (line.trim().length === 0) continue;
-      this.client?.handleInboundLine(line);
+      if (line.trim().length === 0) {
+        idx = this.stdoutBuf.indexOf("\n");
+        continue;
+      }
+      await client.handleInboundLine(line);
+      if (this.generation !== currentGen) return;
       idx = this.stdoutBuf.indexOf("\n");
     }
   }

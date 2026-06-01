@@ -3,12 +3,12 @@ import { randomUUID } from "node:crypto";
 import { NotImplementedError, ProtocolError, toOpenAIError } from "./errors.js";
 import type { PythonBackend } from "./backend.js";
 import { logger } from "./logger.js";
-import { getChatCompletionsParamsSchema } from "./schemas.js";
+import { getChatCompletionsParamsSchema, type ChatCompletionsParams } from "./schemas.js";
 import type { ChatCompletionChunkDelta, OpenAIChatRequest } from "./types.js";
 
 const MAX_BODY_BYTES = 1 * 1024 * 1024; // 1 MiB
 
-type StreamingFinal = { finish_reason: string; usage: object };
+type StreamingFinal = { finish_reason: string; usage: Record<string, unknown> };
 type ServerBackend = Pick<PythonBackend, "call" | "currentState" | "restartCount"> &
   Partial<Pick<PythonBackend, "streamingCall">>;
 
@@ -48,10 +48,18 @@ export function createServer(backend: ServerBackend): http.Server {
       if (req.method === "POST" && urlPath === "/v1/chat/completions") {
         try {
           const body = await readJson<OpenAIChatRequest>(req);
-          if (body.stream === true) {
-            return await handleStreamingChatCompletion(req, res, backend, body, requestId);
+          const parsed = getChatCompletionsParamsSchema().safeParse(body);
+          if (!parsed.success) {
+            return sendJson(res, 400, {
+              error: { type: "invalid_request_error", message: parsed.error.message },
+            });
           }
-          const result = await backend.call("chat.completions", body);
+          const params = parsed.data;
+
+          if (params.stream === true) {
+            return await handleStreamingChatCompletion(req, res, backend, params, requestId);
+          }
+          const result = await backend.call("chat.completions", params);
           return sendJson(res, 200, result);
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err));
@@ -77,44 +85,43 @@ async function handleStreamingChatCompletion(
   req: IncomingMessage,
   res: ServerResponse,
   backend: ServerBackend,
-  body: OpenAIChatRequest,
+  params: ChatCompletionsParams,
   requestId: string,
 ): Promise<void> {
-  const parsed = getChatCompletionsParamsSchema().safeParse(body);
-  if (!parsed.success) {
-    return sendJson(res, 400, {
-      error: { type: "invalid_request_error", message: parsed.error.message },
-    });
-  }
-  if (!backend.streamingCall) {
-    throw new NotImplementedError("streaming is not supported by backend");
-  }
-
-  const model = parsed.data.model;
-  const params = injectMockFailureOptions(parsed.data, req);
+  const model = params.model;
+  const injectedParams = injectMockFailureOptions(params, req);
   const created = Math.floor(Date.now() / 1000);
   const streamId = `chatcmpl-${requestId}`;
 
+  // Always write SSE headers first for stream:true
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   });
 
+  if (!backend.streamingCall) {
+    const error = new NotImplementedError("streaming is not supported by backend");
+    const mapped = toOpenAIError(error);
+    await writeSseData(res, { error: mapped.body.error });
+    endResponse(res);
+    return;
+  }
+
   try {
     const finalMeta = await backend.streamingCall<StreamingFinal>(
       "chat.completions",
-      params,
-      (delta) => writeSseChunk(res, streamId, model, created, normalizeDelta(delta), null),
+      injectedParams,
+      async (delta) =>
+        await writeSseChunk(res, streamId, model, created, normalizeDelta(delta), null),
     );
-    writeSseChunk(res, streamId, model, created, {}, finalMeta.finish_reason);
-    writeSseDone(res);
+    await writeSseChunk(res, streamId, model, created, {}, finalMeta.finish_reason, finalMeta.usage);
+    await writeSseDone(res);
     endResponse(res);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     const mapped = toOpenAIError(error);
-    writeSseData(res, { error: mapped.body.error });
-    writeSseDone(res);
+    await writeSseData(res, { error: mapped.body.error });
     endResponse(res);
   }
 }
@@ -132,6 +139,7 @@ function writeSseChunk(
   created: number,
   delta: ChatCompletionChunkDelta,
   finishReason: string | null,
+  usage?: Record<string, unknown>,
 ): void {
   writeSseData(res, {
     id,
@@ -139,6 +147,7 @@ function writeSseChunk(
     created,
     model,
     choices: [{ index: 0, delta, finish_reason: finishReason }],
+    ...(usage ? { usage } : {}),
   });
 }
 
